@@ -1,5 +1,10 @@
-## Scripts 
+## About
 
-I Have a Script Collection, ALL Created by me some are key some are not.
+A growing collection of scripts — all created by me.
 
-I will have more scripts Soon!
+Some scripts are keyed, some are keyless.
+More scripts coming soon, so stay tuned.
+
+## Credits
+
+Thanks to the people who helped me create these scripts.
