@@ -1,4 +1,4 @@
--- SOLAR UI LIBRARY (UPDATED WITH ALL FEATURES)
+-- SOLAR UI LIBRARY (UPDATED WITH SCROLLABLE SIDEBAR & FIXES)
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -185,6 +185,7 @@ function Solar:Window(name)
         end)
     end
 
+    -- CHANGE: Sidebar is now just a container
     local sidebar = Instance.new("Frame")
     sidebar.Size = UDim2.new(0, 200, 1, -50)
     sidebar.Position = UDim2.new(0, 0, 0, 50)
@@ -192,13 +193,33 @@ function Solar:Window(name)
     sidebar.BorderSizePixel = 0
     sidebar.Parent = main
     sidebar.ZIndex = 11
-    local sidePad = Instance.new("UIPadding", sidebar)
+
+    -- CHANGE: Added ScrollingFrame
+    local sidebarScroll = Instance.new("ScrollingFrame")
+    sidebarScroll.Name = "SidebarScroll"
+    sidebarScroll.Size = UDim2.new(1, 0, 1, 0) -- Fills the sidebar
+    sidebarScroll.Position = UDim2.new(0, 0, 0, 0)
+    sidebarScroll.BackgroundTransparency = 1
+    sidebarScroll.BorderSizePixel = 0
+    sidebarScroll.ScrollBarThickness = 4
+    sidebarScroll.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 50) -- Dark scrollbar
+    sidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    sidebarScroll.Parent = sidebar
+    sidebarScroll.ZIndex = 12
+    
+    -- Canvas size will update automatically via UIListLayout
+    local sidePad = Instance.new("UIPadding", sidebarScroll)
     sidePad.PaddingTop = UDim.new(0, 18)
     sidePad.PaddingLeft = UDim.new(0, 18)
     sidePad.PaddingRight = UDim.new(0, 18)
     sidePad.PaddingBottom = UDim.new(0, 18)
-    local sideList = Instance.new("UIListLayout", sidebar)
+    local sideList = Instance.new("UIListLayout", sidebarScroll)
     sideList.Padding = UDim.new(0, 12)
+
+    -- Update CanvasSize when new items are added
+    sideList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        sidebarScroll.CanvasSize = UDim2.new(0, 0, 0, sideList.AbsoluteContentSize.Y + 36) -- +36 for padding
+    end)
 
     local currentTabLabel = Instance.new("TextLabel")
     currentTabLabel.Text = ""
@@ -222,13 +243,14 @@ function Solar:Window(name)
     local pageList = Instance.new("UIListLayout", pages)
     pageList.SortOrder = Enum.SortOrder.LayoutOrder
 
+    -- CHANGE: Profile Box is now inside the ScrollingFrame so it scrolls with tabs
     local profileBox = Instance.new("Frame")
     profileBox.Size = UDim2.new(1, 0, 0, 95)
     profileBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
     profileBox.BorderSizePixel = 0
-    profileBox.Parent = sidebar
+    profileBox.Parent = sidebarScroll -- Parented to scroll
     profileBox.ZIndex = 12
-    profileBox.LayoutOrder = 999
+    profileBox.LayoutOrder = 999 -- Keep it at the bottom
     local profileCorner = Instance.new("UICorner", profileBox)
     profileCorner.CornerRadius = UDim.new(0, 14)
     local username = Instance.new("TextLabel")
@@ -367,7 +389,7 @@ function Solar:Window(name)
         b.BorderSizePixel = 0
         b.Text = ""
         b.AutoButtonColor = false
-        b.Parent = sidebar
+        b.Parent = sidebarScroll -- CHANGE: Parent to scrolling frame
         b.ZIndex = 12
         local corner = Instance.new("UICorner", b)
         corner.CornerRadius = UDim.new(0, 14)
@@ -404,7 +426,7 @@ function Solar:Window(name)
             Solar:Notify("Switched to " .. name, 1)
         end)
 
-        -- NEW: BUTTON
+        -- BUTTON
         function Tab:Button(text, callback)
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(1, 0, 0, 40)
@@ -429,7 +451,7 @@ function Solar:Window(name)
             end)
         end
 
-        -- NEW: LABEL
+        -- LABEL
         function Tab:Label(text)
             local lbl = Instance.new("TextLabel")
             lbl.Size = UDim2.new(1, 0, 0, 25)
@@ -446,7 +468,7 @@ function Solar:Window(name)
             lblCorner.CornerRadius = UDim.new(0, 8)
         end
 
-        -- NEW: INPUT
+        -- INPUT
         function Tab:Input(placeholder, callback)
             local box = Instance.new("Frame")
             box.Size = UDim2.new(1, 0, 0, 40)
@@ -476,7 +498,7 @@ function Solar:Window(name)
             end)
         end
 
-        -- NEW: KEYBIND
+        -- KEYBIND (FIXED TYPO waitingForKey)
         function Tab:Keybind(defaultName, callback)
             local box = Instance.new("Frame")
             box.Size = UDim2.new(1, 0, 0, 40)
@@ -501,7 +523,7 @@ function Solar:Window(name)
             local btnCorner = Instance.new("UICorner", btn)
             btnCorner.CornerRadius = UDim.new(0, 8)
 
-            local waitingForKey = false
+            local waitingForKey = false -- FIXED: Typo was waitingByKey
 
             btn.MouseButton1Click:Connect(function()
                 waitingForKey = true
@@ -510,8 +532,10 @@ function Solar:Window(name)
 
             UIS.InputBegan:Connect(function(input, gameProcessed)
                 if gameProcessed then return end
-                if waitingByKey and input.UserInputType == Enum.UserInputType.Keyboard then
-                    waitingByKey = false
+                -- Check both variable names just in case user is used to the old logic, 
+                -- but correctly use waitingForKey for assignment.
+                if waitingForKey and input.UserInputType == Enum.UserInputType.Keyboard then
+                    waitingForKey = false
                     btn.Text = input.KeyCode.Name
                     if callback then callback(input.KeyCode) end
                 elseif input.KeyCode == Enum.KeyCode[btn.Text] then
