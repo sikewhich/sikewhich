@@ -1,13 +1,14 @@
-local Solar = {}
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
+local Solar = {}
 Solar.Folder = Instance.new("ScreenGui")
 Solar.Folder.Name = "SolarUI_Lib"
 Solar.Folder.Parent = game:GetService("CoreGui")
 Solar.Folder.ResetOnSpawn = false
+Solar.Folder.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 Solar.Blur = Instance.new("BlurEffect")
 Solar.Blur.Size = 0
@@ -16,13 +17,16 @@ Solar.Blur.Parent = game:GetService("Lighting")
 Solar.NotifyQueue = {}
 Solar.IsShowingNotify = false
 Solar.NotificationsEnabled = true
-Solar.Tabs = {}
-Solar.Pages = {}
+Solar.Windows = {}
+
+function Solar.SetNotifications(bool)
+    Solar.NotificationsEnabled = bool
+end
 
 function Solar:Notify(text, duration)
     if not Solar.NotificationsEnabled then return end
 
-    table.insert(Solar.NotifyQueue, {text = text, duration = duration or 2})
+    table.insert(Solar.NotifyQueue, {text = text, duration = duration or 3})
     
     if Solar.IsShowingNotify then return end
     
@@ -36,13 +40,13 @@ function Solar:Notify(text, duration)
         local data = table.remove(Solar.NotifyQueue, 1)
         
         local notif = Instance.new("Frame")
-        notif.Size = UDim2.new(0, 0, 0, 0)
-        notif.Position = UDim2.new(0.5, 0, 0.1, 0)
+        notif.Size = UDim2.new(0, 280, 0, 50)
+        notif.Position = UDim2.new(0.5, 140, 0.1, 0) -- Start off-screen
         notif.AnchorPoint = Vector2.new(0.5, 0.5)
         notif.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
         notif.BorderSizePixel = 0
-        notif.BackgroundTransparency = 1
         notif.Parent = Solar.Folder
+        notif.ZIndex = 100 -- Ensure notifications are on top
         
         local notifCorner = Instance.new("UICorner", notif)
         notifCorner.CornerRadius = UDim.new(0, 16)
@@ -50,7 +54,7 @@ function Solar:Notify(text, duration)
         local notifStroke = Instance.new("UIStroke", notif)
         notifStroke.Color = Color3.fromRGB(80, 80, 80)
         notifStroke.Thickness = 1
-        notifStroke.Transparency = 1
+        notifStroke.Transparency = 0.3
         
         local notifText = Instance.new("TextLabel")
         notifText.Text = data.text
@@ -58,42 +62,23 @@ function Solar:Notify(text, duration)
         notifText.TextSize = 15
         notifText.TextColor3 = Color3.fromRGB(255, 255, 255)
         notifText.BackgroundTransparency = 1
-        notifText.BorderSizePixel = 0
-        notifText.Size = UDim2.new(1, -32, 1, 0)
-        notifText.Position = UDim2.new(0, 16, 0, 0)
-        notifText.TextXAlignment = Enum.TextXAlignment.Center
-        notifText.TextTransparency = 1
+        notifText.Size = UDim2.new(1, 0, 1, 0)
         notifText.Parent = notif
         
+        -- Slide In Animation
         TweenService:Create(notif, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 280, 0, 50),
-            BackgroundTransparency = 0.1
-        }):Play()
-        
-        TweenService:Create(notifStroke, TweenInfo.new(0.4), {
-            Transparency = 0.3
-        }):Play()
-        
-        TweenService:Create(notifText, TweenInfo.new(0.4), {
-            TextTransparency = 0
+            Position = UDim2.new(0.5, 0, 0.1, 0)
         }):Play()
         
         wait(data.duration)
         
-        TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0),
-            BackgroundTransparency = 1
-        }):Play()
+        -- Slide Out Animation
+        local tweenOut = TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, -140, 0.1, 0) -- Move out to left
+        })
+        tweenOut:Play()
+        tweenOut.Completed:Wait()
         
-        TweenService:Create(notifStroke, TweenInfo.new(0.3), {
-            Transparency = 1
-        }):Play()
-        
-        TweenService:Create(notifText, TweenInfo.new(0.3), {
-            TextTransparency = 1
-        }):Play()
-        
-        wait(0.4)
         notif:Destroy()
         showNext()
     end
@@ -107,10 +92,12 @@ function Solar:Window(name)
     local Window = {}
     local isOpen = true
 
+    -- Intro Animation
     local splash = Instance.new("Frame")
     splash.Size = UDim2.new(1, 0, 1, 0)
     splash.BackgroundTransparency = 1
     splash.BorderSizePixel = 0
+    splash.ZIndex = 100
     splash.Parent = Solar.Folder
 
     local splashText = Instance.new("TextLabel")
@@ -119,7 +106,6 @@ function Solar:Window(name)
     splashText.TextSize = 96
     splashText.TextColor3 = Color3.fromRGB(255, 255, 255)
     splashText.BackgroundTransparency = 1
-    splashText.BorderSizePixel = 0
     splashText.Size = UDim2.new(1, 0, 1, 0)
     splashText.TextTransparency = 1
     splashText.Parent = splash
@@ -132,7 +118,7 @@ function Solar:Window(name)
         TextTransparency = 0
     }):Play()
 
-    wait(1.8)
+    task.wait(1.8)
 
     TweenService:Create(splashText, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
         TextTransparency = 1
@@ -142,17 +128,17 @@ function Solar:Window(name)
         Size = 0
     }):Play()
 
-    wait(0.7)
+    task.wait(0.7)
     splash:Destroy()
 
+    -- Main Window
     local main = Instance.new("Frame")
     main.Size = UDim2.new(0, 700, 0, 540)
     main.Position = UDim2.new(0.5, -350, 0.5, -270)
     main.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
     main.BorderSizePixel = 0
-    main.BackgroundTransparency = 0
     main.Parent = Solar.Folder
-    main.ClipsDescendants = false
+    main.ZIndex = 10
 
     local mainCorner = Instance.new("UICorner", main)
     mainCorner.CornerRadius = UDim.new(0, 20)
@@ -162,21 +148,25 @@ function Solar:Window(name)
     mainStroke.Thickness = 1
     mainStroke.Transparency = 0.5
 
+    -- Top Bar
     local top = Instance.new("Frame")
     top.Size = UDim2.new(1, 0, 0, 50)
     top.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     top.BorderSizePixel = 0
     top.Parent = main
+    top.ZIndex = 11
 
     local topCorner = Instance.new("UICorner", top)
     topCorner.CornerRadius = UDim.new(0, 20)
 
+    -- Fix bottom corners of top bar to match window
     local topMask = Instance.new("Frame")
     topMask.Size = UDim2.new(1, 0, 0.5, 0)
     topMask.Position = UDim2.new(0, 0, 0.5, 0)
     topMask.BackgroundColor3 = top.BackgroundColor3
     topMask.BorderSizePixel = 0
     topMask.Parent = top
+    topMask.ZIndex = 11
 
     local title = Instance.new("TextLabel")
     title.Text = name
@@ -184,12 +174,13 @@ function Solar:Window(name)
     title.TextSize = 18
     title.TextColor3 = Color3.fromRGB(240, 240, 240)
     title.BackgroundTransparency = 1
-    title.BorderSizePixel = 0
     title.Size = UDim2.new(0, 100, 1, 0)
     title.Position = UDim2.new(0, 20, 0, 0)
     title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 12
     title.Parent = top
 
+    -- Top Buttons
     local function circle(color, x)
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(0, 14, 0, 14)
@@ -198,6 +189,7 @@ function Solar:Window(name)
         b.BorderSizePixel = 0
         b.Text = ""
         b.AutoButtonColor = false
+        b.ZIndex = 12
         b.Parent = top
         
         local corner = Instance.new("UICorner", b)
@@ -222,6 +214,7 @@ function Solar:Window(name)
     local yellow = circle(Color3.fromRGB(255, 200, 80), -42)
     local green = circle(Color3.fromRGB(80, 255, 120), -64)
 
+    -- Dragging
     do
         local dragging, startPos, startInput
         top.InputBegan:Connect(function(i)
@@ -245,12 +238,14 @@ function Solar:Window(name)
         end)
     end
 
+    -- Sidebar
     local sidebar = Instance.new("Frame")
     sidebar.Size = UDim2.new(0, 200, 1, -50)
     sidebar.Position = UDim2.new(0, 0, 0, 50)
     sidebar.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
     sidebar.BorderSizePixel = 0
     sidebar.Parent = main
+    sidebar.ZIndex = 11
 
     local sidePad = Instance.new("UIPadding", sidebar)
     sidePad.PaddingTop = UDim.new(0, 18)
@@ -260,73 +255,181 @@ function Solar:Window(name)
 
     local sideList = Instance.new("UIListLayout", sidebar)
     sideList.Padding = UDim.new(0, 12)
-    sideList.VerticalAlignment = Enum.VerticalAlignment.Top
 
+    -- Current Tab Label
     local currentTabLabel = Instance.new("TextLabel")
-    currentTabLabel.Text = "Home"
+    currentTabLabel.Text = ""
     currentTabLabel.Font = Enum.Font.GothamBold
     currentTabLabel.TextSize = 13
     currentTabLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     currentTabLabel.BackgroundTransparency = 1
-    currentTabLabel.BorderSizePixel = 0
     currentTabLabel.Size = UDim2.new(0, 200, 0, 30)
     currentTabLabel.Position = UDim2.new(0, 0, 1, -30)
     currentTabLabel.TextXAlignment = Enum.TextXAlignment.Center
+    currentTabLabel.ZIndex = 12
     currentTabLabel.Parent = main
 
+    -- Pages Container
     local pages = Instance.new("Frame")
     pages.Size = UDim2.new(1, -220, 1, -80)
     pages.Position = UDim2.new(0, 220, 0, 70)
     pages.BackgroundTransparency = 1
     pages.BorderSizePixel = 0
     pages.Parent = main
+    pages.ZIndex = 11
 
     local pageList = Instance.new("UIListLayout", pages)
     pageList.SortOrder = Enum.SortOrder.LayoutOrder
 
-    local function toggleUI()
+    -- Profile Section (Bottom of Sidebar)
+    local profileBox = Instance.new("Frame")
+    profileBox.Size = UDim2.new(1, 0, 0, 95)
+    profileBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    profileBox.BorderSizePixel = 0
+    profileBox.Parent = sidebar
+    profileBox.ZIndex = 12
+    profileBox.LayoutOrder = 999
+
+    local profileCorner = Instance.new("UICorner", profileBox)
+    profileCorner.CornerRadius = UDim.new(0, 14)
+
+    local username = Instance.new("TextLabel")
+    username.Text = Players.LocalPlayer.Name
+    username.Font = Enum.Font.GothamBold
+    username.TextSize = 14
+    username.TextColor3 = Color3.fromRGB(230, 230, 230)
+    username.BackgroundTransparency = 1
+    username.Position = UDim2.new(0, 12, 0, 10)
+    username.Size = UDim2.new(1, -70, 0, 18)
+    username.TextXAlignment = Enum.TextXAlignment.Left
+    username.Parent = profileBox
+
+    local userTitle = Instance.new("TextLabel")
+    userTitle.Text = "Discord Server"
+    userTitle.Font = Enum.Font.Gotham
+    userTitle.TextSize = 11
+    userTitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+    userTitle.BackgroundTransparency = 1
+    userTitle.Position = UDim2.new(0, 12, 0, 30)
+    userTitle.Size = UDim2.new(1, -70, 0, 16)
+    userTitle.TextXAlignment = Enum.TextXAlignment.Left
+    userTitle.Parent = profileBox
+
+    local pfp = Instance.new("ImageLabel")
+    pfp.Image = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+    pfp.Size = UDim2.new(0, 40, 0, 40)
+    pfp.Position = UDim2.new(0, 12, 1, -48)
+    pfp.BackgroundTransparency = 1
+    pfp.Parent = profileBox
+    local pfpCorner = Instance.new("UICorner", pfp)
+    pfpCorner.CornerRadius = UDim.new(1, 0)
+
+    local pfpPlaceholder = Instance.new("Frame")
+    pfpPlaceholder.Size = UDim2.new(1, 0, 1, 0)
+    pfpPlaceholder.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    pfpPlaceholder.BorderSizePixel = 0
+    pfpPlaceholder.Visible = false
+    pfpPlaceholder.Parent = pfp
+    local pfpPlaceCorner = Instance.new("UICorner", pfpPlaceholder)
+    pfpPlaceCorner.CornerRadius = UDim.new(1, 0)
+
+    local privacyBtn = Instance.new("TextButton")
+    privacyBtn.Size = UDim2.new(0, 40, 0, 40)
+    privacyBtn.Position = UDim2.new(1, -50, 0, 8)
+    privacyBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    privacyBtn.BorderSizePixel = 0
+    privacyBtn.Text = ""
+    privacyBtn.AutoButtonColor = false
+    privacyBtn.Parent = profileBox
+    local privacyCorner = Instance.new("UICorner", privacyBtn)
+    privacyCorner.CornerRadius = UDim.new(0, 12)
+
+    local privacyIcon = Instance.new("ImageLabel")
+    privacyIcon.Image = "rbxassetid://6031094678"
+    privacyIcon.ImageColor3 = Color3.fromRGB(230, 230, 230)
+    privacyIcon.Size = UDim2.new(0, 20, 0, 20)
+    privacyIcon.Position = UDim2.new(0.5, -10, 0.5, -10)
+    privacyIcon.BackgroundTransparency = 1
+    privacyIcon.Parent = privacyBtn
+
+    local isPrivate = false
+    local originalName = Players.LocalPlayer.Name
+
+    privacyBtn.MouseEnter:Connect(function()
+        TweenService:Create(privacyBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        }):Play()
+    end)
+
+    privacyBtn.MouseLeave:Connect(function()
+        local color = isPrivate and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(20, 20, 20)
+        TweenService:Create(privacyBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = color
+        }):Play()
+    end)
+
+    privacyBtn.MouseButton1Click:Connect(function()
+        isPrivate = not isPrivate
+        if isPrivate then
+            pfpPlaceholder.Visible = true
+            username.Text = string.rep("#", #originalName)
+            privacyIcon.Image = "rbxassetid://6031082533"
+            TweenService:Create(privacyBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+            }):Play()
+        else
+            pfpPlaceholder.Visible = false
+            username.Text = originalName
+            privacyIcon.Image = "rbxassetid://6031094678"
+            TweenService:Create(privacyBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            }):Play()
+        end
+    end)
+
+    -- Toggle UI
+    local function toggleWindow()
         isOpen = not isOpen
         if isOpen then
             main.Visible = true
-            TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 0
+            main.Size = UDim2.new(0, 0, 0, 0) -- Start small
+            main.Position = UDim2.new(0.5, 0, 0.5, 0)
+            
+            -- Pop in animation
+            TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 700, 0, 540),
+                Position = UDim2.new(0.5, -350, 0.5, -270)
             }):Play()
-            TweenService:Create(mainStroke, TweenInfo.new(0.35), {
-                Transparency = 0.5
-            }):Play()
+            
             Solar:Notify(name .. " Opened", 1.5)
         else
-            TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                BackgroundTransparency = 1
+            -- Shrink animation
+            TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = UDim2.new(0.5, 0, 0.5, 0)
             }):Play()
-            TweenService:Create(mainStroke, TweenInfo.new(0.35), {
-                Transparency = 1
-            }):Play()
-            wait(0.36)
+            task.wait(0.3)
             main.Visible = false
             Solar:Notify(name .. " Closed", 1.5)
         end
     end
 
-    green.MouseButton1Click:Connect(toggleUI)
-    yellow.MouseButton1Click:Connect(toggleUI)
+    green.MouseButton1Click:Connect(toggleWindow)
+    yellow.MouseButton1Click:Connect(toggleWindow)
 
     red.MouseButton1Click:Connect(function()
         TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            BackgroundTransparency = 1
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
         }):Play()
-        TweenService:Create(mainStroke, TweenInfo.new(0.3), {
-            Transparency = 1
-        }):Play()
-        wait(1.32)
-        Solar:Notify(name .. " Destroyed", 1.5)
-        wait(1.5)
+        task.wait(0.3)
         Solar.Blur:Destroy()
         Solar.Folder:Destroy()
     end)
 
     function Window:Tab(name, icon)
         local Tab = {}
+        
         local page = Instance.new("Frame")
         page.Name = name
         page.Size = UDim2.new(1, 0, 1, 0)
@@ -334,7 +437,8 @@ function Solar:Window(name)
         page.BorderSizePixel = 0
         page.Visible = false
         page.Parent = pages
-        page.LayoutOrder = #Solar.Pages + 1
+        page.ZIndex = 5
+        page.LayoutOrder = #pages:GetChildren() + 1
 
         local pad = Instance.new("UIPadding", page)
         pad.PaddingTop = UDim.new(0, 10)
@@ -344,8 +448,6 @@ function Solar:Window(name)
         local list = Instance.new("UIListLayout", page)
         list.Padding = UDim.new(0, 14)
 
-        table.insert(Solar.Pages, page)
-
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(1, 0, 0, 46)
         b.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
@@ -353,6 +455,7 @@ function Solar:Window(name)
         b.Text = ""
         b.AutoButtonColor = false
         b.Parent = sidebar
+        b.ZIndex = 12
         
         local corner = Instance.new("UICorner", b)
         corner.CornerRadius = UDim.new(0, 14)
@@ -362,7 +465,6 @@ function Solar:Window(name)
         ic.Size = UDim2.new(0, 18, 0, 18)
         ic.Position = UDim2.new(0, 14, 0.5, -9)
         ic.BackgroundTransparency = 1
-        ic.BorderSizePixel = 0
         ic.Parent = b
 
         local label = Instance.new("TextLabel")
@@ -371,7 +473,6 @@ function Solar:Window(name)
         label.TextSize = 14
         label.TextColor3 = Color3.fromRGB(230, 230, 230)
         label.BackgroundTransparency = 1
-        label.BorderSizePixel = 0
         label.Position = UDim2.new(0, 44, 0, 0)
         label.Size = UDim2.new(1, -44, 1, 0)
         label.TextXAlignment = Enum.TextXAlignment.Left
@@ -392,24 +493,12 @@ function Solar:Window(name)
         b.MouseButton1Click:Connect(function()
             for _, v in pairs(pages:GetChildren()) do
                 if v:IsA("Frame") then
-                    TweenService:Create(v, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        Position = UDim2.new(0, -30, 0, 0)
-                    }):Play()
-                    wait(0.1)
                     v.Visible = false
                 end
             end
-            
             page.Visible = true
-            page.Position = UDim2.new(0, 30, 0, 0)
-            TweenService:Create(page, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, 0, 0, 0)
-            }):Play()
-            
             currentTabLabel.Text = name
-            
-            wait(1)
-            Solar:Notify("Switched to " .. name, 1.5)
+            Solar:Notify("Switched to " .. name, 1)
         end)
 
         function Tab:Toggle(text, callback)
@@ -418,6 +507,7 @@ function Solar:Window(name)
             box.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
             box.BorderSizePixel = 0
             box.Parent = page
+            box.ZIndex = 6
             
             local corner = Instance.new("UICorner", box)
             corner.CornerRadius = UDim.new(0, 14)
@@ -441,6 +531,7 @@ function Solar:Window(name)
             toggleBg.BorderSizePixel = 0
             toggleBg.Text = ""
             toggleBg.AutoButtonColor = false
+            toggleBg.ZIndex = 7
             toggleBg.Parent = box
             
             local toggleCorner = Instance.new("UICorner", toggleBg)
@@ -487,6 +578,7 @@ function Solar:Window(name)
             box.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
             box.BorderSizePixel = 0
             box.Parent = page
+            box.ZIndex = 6 -- Lower ZIndex for container
             
             local corner = Instance.new("UICorner", box)
             corner.CornerRadius = UDim.new(0, 14)
@@ -513,7 +605,7 @@ function Solar:Window(name)
             btn.Font = Enum.Font.Gotham
             btn.TextSize = 14
             btn.AutoButtonColor = false
-            btn.ZIndex = 10
+            btn.ZIndex = 10 -- Higher ZIndex for button
             btn.Parent = box
 
             local btnCorner = Instance.new("UICorner", btn)
@@ -531,14 +623,16 @@ function Solar:Window(name)
 
             local listOpen = false
             local optionFrame = Instance.new("Frame")
+            -- Important: Parent this to the 'page' but ensure ZIndex is higher than everything
             optionFrame.Name = "DropdownList"
             optionFrame.Size = UDim2.new(0, 100, 0, 0)
             optionFrame.Position = UDim2.new(1, -112, 1, 2)
             optionFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
             optionFrame.BorderSizePixel = 0
             optionFrame.ClipsDescendants = true
-            optionFrame.ZIndex = 20
-            optionFrame.Parent = page
+            optionFrame.ZIndex = 50 -- Highest ZIndex to sit on top
+            optionFrame.Parent = page -- Parent to page so it moves with content if needed
+            
             local optCorner = Instance.new("UICorner", optionFrame)
             optCorner.CornerRadius = UDim.new(0, 8)
             local optLayout = Instance.new("UIListLayout", optionFrame)
@@ -554,7 +648,7 @@ function Solar:Window(name)
                 optBtn.Font = Enum.Font.Gotham
                 optBtn.TextSize = 13
                 optBtn.AutoButtonColor = false
-                optBtn.ZIndex = 21
+                optBtn.ZIndex = 51
                 optBtn.Parent = optionFrame
                 local optC = Instance.new("UICorner", optBtn)
                 optC.CornerRadius = UDim.new(0, 6)
@@ -570,7 +664,7 @@ function Solar:Window(name)
                     btn.Text = opt
                     listOpen = false
                     TweenService:Create(optionFrame, TweenInfo.new(0.2), {Size = UDim2.new(0, 100, 0, 0)}):Play()
-                    wait(0.2)
+                    task.wait(0.2)
                     optionFrame.Visible = false
                     if callback then callback(opt) end
                 end)
@@ -583,7 +677,7 @@ function Solar:Window(name)
                     TweenService:Create(optionFrame, TweenInfo.new(0.2), {Size = UDim2.new(0, 100, 0, #options * 28)}):Play()
                 else
                     TweenService:Create(optionFrame, TweenInfo.new(0.2), {Size = UDim2.new(0, 100, 0, 0)}):Play()
-                    wait(0.2)
+                    task.wait(0.2)
                     optionFrame.Visible = false
                 end
             end)
@@ -595,6 +689,7 @@ function Solar:Window(name)
             box.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
             box.BorderSizePixel = 0
             box.Parent = page
+            box.ZIndex = 6
             
             local corner = Instance.new("UICorner", box)
             corner.CornerRadius = UDim.new(0, 14)
@@ -636,7 +731,7 @@ function Solar:Window(name)
             circleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             circleBtn.BorderSizePixel = 0
             circleBtn.Text = ""
-            circleBtn.ZIndex = 2
+            circleBtn.ZIndex = 7
             circleBtn.AutoButtonColor = false
             circleBtn.Parent = sliderBg
             
@@ -712,8 +807,6 @@ function Solar:Window(name)
         return Tab
     end
 
-    Window.Main = main
-    Window.Sidebar = sidebar
     return Window
 end
 
