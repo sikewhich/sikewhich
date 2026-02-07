@@ -1,4 +1,16 @@
--- SOLAR UI LIBRARY (UPDATED WITH SCROLLABLE SIDEBAR & FIXES)
+--[[
+   _____       __           __  ______
+  / ___/____  / /___ ______/ / / /  _/
+  \__ \/ __ \/ / __ `/ ___/ / / // /  
+ ___/ / /_/ / / /_/ / /  / /_/ // /   
+/____/\____/_/\__,_/_/   \____/___/   
+
+ Version: 1.1
+ Credits : sikewhich
+ Thank you AI!
+
+]]
+
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
