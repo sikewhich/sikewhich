@@ -1,14 +1,13 @@
--- NOVA UI LIBRARY ONLY (NO LOGIC)
+-- NOVA UI LIBRARY (FIXED & OPTIMIZED)
 local Player = game.Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 -- CONFIGURATION
 local CONFIG = {
     Name = "Nova Library",
-    Theme = "Cyan", -- Options: Cyan, Red, Green, Purple, Orange, Midnight, Synapse, Gold, Toxic, CottonCandy, Ocean, Vaporwave, Dracula
+    Theme = "Cyan", -- Fallback handled in code
     Keybind = "RightControl",
     Size = UDim2.new(0, 500, 0, 350)
 }
@@ -186,7 +185,8 @@ local Themes = {
     }
 }
 
-local CurrentTheme = Themes[CONFIG.Theme]
+-- FIX #2: Safe Theme Fallback
+local CurrentTheme = Themes[CONFIG.Theme] or Themes.Cyan
 
 -- UI REFERENCES
 local ScreenGui = Instance.new("ScreenGui")
@@ -197,6 +197,7 @@ local ContentArea = Instance.new("Frame")
 local ToggleBtn = Instance.new("TextButton")
 
 local NotificationLayout
+local NotifContainer
 local OpenedTabs = {}
 
 -- HELPERS
@@ -204,7 +205,10 @@ local function AddStroke(parent, color, thickness)
     local stroke = Instance.new("UIStroke")
     stroke.Color = color or CurrentTheme.Outline
     stroke.Thickness = thickness or 1
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    -- FIX #7: Safe ApplyStrokeMode
+    pcall(function()
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    end)
     stroke.Parent = parent
     return stroke
 end
@@ -218,15 +222,48 @@ local function createLayout(parent)
     return layout
 end
 
+-- DRAGGING HELPER (Reusable)
+local function makeDraggable(object)
+    local dragging, dragInput, dragStart, startPos
+    
+    object.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = object.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    object.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            object.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
 -- NOTIFICATIONS
 local function SendNotification(text, color)
-    if not NotificationLayout then return end
+    if not NotificationLayout or not NotifContainer then return end
     
     local container = Instance.new("Frame")
     container.Size = UDim2.new(0, 250, 0, 40)
     container.BackgroundColor3 = CurrentTheme.SidebarBg
     container.BackgroundTransparency = 1
-    container.Parent = NotificationLayout.Parent
+    -- FIX #6: Use stored NotifContainer
+    container.Parent = NotifContainer
     
     local content = Instance.new("Frame")
     content.Size = UDim2.new(1, 0, 1, 0)
@@ -264,7 +301,7 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = PlayerGui
 
 -- NOTIFICATION CONTAINER
-local NotifContainer = Instance.new("Frame")
+NotifContainer = Instance.new("Frame")
 NotifContainer.Size = UDim2.new(1, 0, 1, 0)
 NotifContainer.Position = UDim2.new(0, 0, 0.05, 0)
 NotifContainer.BackgroundTransparency = 1
@@ -287,10 +324,11 @@ ToggleBtn.Text = "N"
 ToggleBtn.TextColor3 = CurrentTheme.Accent
 ToggleBtn.Font = Enum.Font.GothamBlack
 ToggleBtn.TextSize = 30
-ToggleBtn.Draggable = true
+-- FIX #1 & #10: Removed Draggable property, added custom input dragging
 ToggleBtn.Parent = ScreenGui
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 14)
 AddStroke(ToggleBtn, CurrentTheme.Accent, 2)
+makeDraggable(ToggleBtn)
 
 -- MAIN WINDOW
 MainFrame.Name = "MainFrame"
@@ -309,32 +347,8 @@ SideBar.BackgroundColor3 = CurrentTheme.SidebarBg
 SideBar.Parent = MainFrame
 Instance.new("UICorner", SideBar).CornerRadius = UDim.new(0, 10)
 
--- DRAGGING LOGIC
-local dragging, dragInput, dragStart, startPos
-local function updateDrag(input)
-    local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-SideBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-SideBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then updateDrag(input) end
-end)
+-- DRAGGING LOGIC (Main Window)
+makeDraggable(SideBar)
 
 -- TITLE
 local TitleLabel = Instance.new("TextLabel")
@@ -367,6 +381,10 @@ TabListLayout.Parent = TabButtonsContainer
 TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabListLayout.Padding = UDim.new(0, 5)
 TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+-- FIX #9: Update CanvasSize for Sidebar
+TabListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TabButtonsContainer.CanvasSize = UDim2.new(0, 0, 0, TabListLayout.AbsoluteContentSize.Y + 10)
+end)
 
 -- CONTENT AREA
 ContentArea.Size = UDim2.new(0.75, 0, 1, 0)
@@ -393,7 +411,13 @@ function NovaLibrary.CreateTab(name)
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = CurrentTheme.Accent
     page.Parent = ContentArea
-    createLayout(page)
+    local layout = createLayout(page)
+    
+    -- FIX #9: Update CanvasSize for Tab Content
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    end)
+
     OpenedTabs[name] = page
 
     local btn = Instance.new("TextButton")
@@ -416,9 +440,14 @@ function NovaLibrary.CreateTab(name)
     bar.Parent = btn
     Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
 
-    btn.MouseButton1Click:Connect(function()
-        -- Hide all
-        for _, f in pairs(OpenedTabs) do f.Visible = false end
+    -- FIX #8: Logic wrapper to avoid firing issues
+    local function SwitchTab()
+        -- FIX #5: Check validity before hiding
+        for _, f in pairs(OpenedTabs) do
+            if f and f.Parent then
+                f.Visible = false
+            end
+        end
         page.Visible = true
         
         -- Reset styles
@@ -433,11 +462,13 @@ function NovaLibrary.CreateTab(name)
         -- Set active style
         TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = CurrentTheme.ContentBg, TextColor3 = CurrentTheme.TextPrimary}):Play()
         TweenService:Create(bar, TweenInfo.new(0.2), {Size = UDim2.new(0, 3, 0.8, 0)}):Play()
-    end)
+    end
+
+    btn.MouseButton1Click:Connect(SwitchTab)
 
     -- Auto open first tab
     if #TabButtonsContainer:GetChildren() == 1 then
-        btn:MouseButton1Click()
+        task.spawn(SwitchTab)
     end
 
     local TabFunctions = {}
@@ -548,7 +579,10 @@ function NovaLibrary.CreateTab(name)
         sliderFill.Parent = sliderBg
         Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
 
+        -- FIX #3: Prevent Division by Zero
+        local range = math.max(maxVal - minVal, 1)
         local draggingSlider = false
+
         local function updateSlider(input)
             local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
             local val = math.floor(minVal + ((maxVal - minVal) * pos))
@@ -566,20 +600,33 @@ function NovaLibrary.CreateTab(name)
             end
         end)
 
-        UserInputService.InputChanged:Connect(function(input)
-            if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        -- FIX #4: Specific connections to prevent leaks and improve performance
+        local moveConn
+        local upConn
+        
+        sliderBg.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                draggingSlider = true
                 updateSlider(input)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                draggingSlider = false
+                
+                moveConn = UserInputService.InputChanged:Connect(function(input)
+                    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement) then
+                        updateSlider(input)
+                    end
+                end)
+                
+                upConn = UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        draggingSlider = false
+                        if moveConn then moveConn:Disconnect() moveConn = nil end
+                        if upConn then upConn:Disconnect() upConn = nil end
+                    end
+                end)
             end
         end)
 
         -- Init
-        local startPercent = (defaultVal - minVal) / (maxVal - minVal)
+        local startPercent = (defaultVal - minVal) / range
         sliderFill.Size = UDim2.new(startPercent, 0, 1, 0)
     end
 
@@ -629,8 +676,8 @@ function NovaLibrary:SetTheme(themeName)
     if Themes[themeName] then
         CurrentTheme = Themes[themeName]
         SendNotification("Theme Changed: " .. themeName, CurrentTheme.Accent)
-        -- Note: Real-time theme update of existing elements requires more complex reparenting or value updating. 
-        -- For this library version, new elements take the theme.
+        -- Note: Real-time theme update of existing elements requires repainting. 
+        -- Elements created AFTER this call will use the new theme.
     end
 end
 
