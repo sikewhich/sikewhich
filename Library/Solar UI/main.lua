@@ -5,9 +5,8 @@
  ___/ / /_/ / / /_/ / /  / /_/ // /   
 /____/\____/_/\__,_/_/   \____/___/   
 
- Version: 1.1
+ Version: 1.2 (Added Sidebar Scrolling)
  Credits : sikewhich
- Thank you AI!
 
 ]]
 
@@ -89,6 +88,7 @@ function Solar:Window(name)
     local Window = {}
     local isOpen = true
 
+    -- Splash Screen
     local splash = Instance.new("Frame")
     splash.Size = UDim2.new(1, 0, 1, 0)
     splash.BackgroundTransparency = 1
@@ -112,6 +112,7 @@ function Solar:Window(name)
     task.wait(0.7)
     splash:Destroy()
 
+    -- Main Window
     local main = Instance.new("Frame")
     main.Size = UDim2.new(0, 700, 0, 540)
     main.Position = UDim2.new(0.5, -350, 0.5, -270)
@@ -153,6 +154,7 @@ function Solar:Window(name)
     title.ZIndex = 12
     title.Parent = top
 
+    -- Window Buttons (Red, Yellow, Green)
     local function circle(color, x)
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(0, 14, 0, 14)
@@ -177,6 +179,7 @@ function Solar:Window(name)
     local yellow = circle(Color3.fromRGB(255, 200, 80), -42)
     local green = circle(Color3.fromRGB(80, 255, 120), -64)
 
+    -- Dragging Logic
     do
         local dragging, startPos, startInput
         top.InputBegan:Connect(function(i)
@@ -197,7 +200,7 @@ function Solar:Window(name)
         end)
     end
 
-    -- CHANGE: Sidebar is now just a container
+    -- SIDEBAR CONTAINER
     local sidebar = Instance.new("Frame")
     sidebar.Size = UDim2.new(0, 200, 1, -50)
     sidebar.Position = UDim2.new(0, 0, 0, 50)
@@ -206,31 +209,32 @@ function Solar:Window(name)
     sidebar.Parent = main
     sidebar.ZIndex = 11
 
-    -- CHANGE: Added ScrollingFrame
+    -- SCROLLING FRAME (The new scrollable part)
     local sidebarScroll = Instance.new("ScrollingFrame")
     sidebarScroll.Name = "SidebarScroll"
-    sidebarScroll.Size = UDim2.new(1, 0, 1, 0) -- Fills the sidebar
+    sidebarScroll.Size = UDim2.new(1, 0, 1, 0)
     sidebarScroll.Position = UDim2.new(0, 0, 0, 0)
     sidebarScroll.BackgroundTransparency = 1
     sidebarScroll.BorderSizePixel = 0
     sidebarScroll.ScrollBarThickness = 4
-    sidebarScroll.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 50) -- Dark scrollbar
+    sidebarScroll.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 50)
     sidebarScroll.ScrollingDirection = Enum.ScrollingDirection.Y
     sidebarScroll.Parent = sidebar
     sidebarScroll.ZIndex = 12
     
-    -- Canvas size will update automatically via UIListLayout
+    -- Layout to handle spacing and auto-sizing
     local sidePad = Instance.new("UIPadding", sidebarScroll)
     sidePad.PaddingTop = UDim.new(0, 18)
     sidePad.PaddingLeft = UDim.new(0, 18)
     sidePad.PaddingRight = UDim.new(0, 18)
     sidePad.PaddingBottom = UDim.new(0, 18)
+    
     local sideList = Instance.new("UIListLayout", sidebarScroll)
     sideList.Padding = UDim.new(0, 12)
 
-    -- Update CanvasSize when new items are added
+    -- Automatically resize CanvasSize when children are added/removed
     sideList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        sidebarScroll.CanvasSize = UDim2.new(0, 0, 0, sideList.AbsoluteContentSize.Y + 36) -- +36 for padding
+        sidebarScroll.CanvasSize = UDim2.new(0, 0, 0, sideList.AbsoluteContentSize.Y + 36) -- +36 accounts for padding
     end)
 
     local currentTabLabel = Instance.new("TextLabel")
@@ -255,14 +259,15 @@ function Solar:Window(name)
     local pageList = Instance.new("UIListLayout", pages)
     pageList.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- CHANGE: Profile Box is now inside the ScrollingFrame so it scrolls with tabs
+    -- PROFILE BOX (Moved to ScrollingFrame)
     local profileBox = Instance.new("Frame")
     profileBox.Size = UDim2.new(1, 0, 0, 95)
     profileBox.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
     profileBox.BorderSizePixel = 0
     profileBox.Parent = sidebarScroll -- Parented to scroll
     profileBox.ZIndex = 12
-    profileBox.LayoutOrder = 999 -- Keep it at the bottom
+    profileBox.LayoutOrder = -1 -- Ensure it stays at top (or use 999 for bottom)
+    
     local profileCorner = Instance.new("UICorner", profileBox)
     profileCorner.CornerRadius = UDim.new(0, 14)
     local username = Instance.new("TextLabel")
@@ -395,14 +400,17 @@ function Solar:Window(name)
         local list = Instance.new("UIListLayout", page)
         list.Padding = UDim.new(0, 14)
 
+        -- Sidebar Tab Button
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(1, 0, 0, 46)
         b.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
         b.BorderSizePixel = 0
         b.Text = ""
         b.AutoButtonColor = false
-        b.Parent = sidebarScroll -- CHANGE: Parent to scrolling frame
+        b.Parent = sidebarScroll -- CHANGE: Parented to ScrollingFrame
         b.ZIndex = 12
+        b.LayoutOrder = #sidebarScroll:GetChildren() -- Basic ordering
+        
         local corner = Instance.new("UICorner", b)
         corner.CornerRadius = UDim.new(0, 14)
         local ic = Instance.new("ImageLabel")
@@ -510,7 +518,7 @@ function Solar:Window(name)
             end)
         end
 
-        -- KEYBIND (FIXED TYPO waitingForKey)
+        -- KEYBIND
         function Tab:Keybind(defaultName, callback)
             local box = Instance.new("Frame")
             box.Size = UDim2.new(1, 0, 0, 40)
@@ -535,7 +543,7 @@ function Solar:Window(name)
             local btnCorner = Instance.new("UICorner", btn)
             btnCorner.CornerRadius = UDim.new(0, 8)
 
-            local waitingForKey = false -- FIXED: Typo was waitingByKey
+            local waitingForKey = false
 
             btn.MouseButton1Click:Connect(function()
                 waitingForKey = true
@@ -544,8 +552,6 @@ function Solar:Window(name)
 
             UIS.InputBegan:Connect(function(input, gameProcessed)
                 if gameProcessed then return end
-                -- Check both variable names just in case user is used to the old logic, 
-                -- but correctly use waitingForKey for assignment.
                 if waitingForKey and input.UserInputType == Enum.UserInputType.Keyboard then
                     waitingForKey = false
                     btn.Text = input.KeyCode.Name
