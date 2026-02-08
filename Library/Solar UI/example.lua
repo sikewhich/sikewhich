@@ -1,3 +1,16 @@
+--[[ 
+   _____       __           __  ______
+  / ___/____  / /___ ______/ / / /  _/
+  \__ \/ __ \/ / __ `/ ___/ / / // /  
+ ___/ / /_/ / / /_/ / /  / /_/ // /   
+/____/\____/_/\__,_/_/   \____/___/   
+
+ Version: 1.1
+ Credits : sikewhich
+
+]]
+
+
 -- Load the Library
 local Solar = loadstring(game:HttpGet("https://raw.githubusercontent.com/sikewhich/sikewhich/refs/heads/main/Library/Solar%20UI/main.lua"))()
 
