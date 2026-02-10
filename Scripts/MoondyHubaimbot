@@ -1,6 +1,4 @@
 -- Moondy Hub
--- Loaded Obsidian Library
-
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -13,7 +11,7 @@ Library:Notify("Loading Moondy Hub...", 3)
 
 local Window = Library:CreateWindow({
     Title = "Moondy Hub",
-    Footer = "version: 1.0",
+    Footer = "version: 1.2",
     Icon = 1,
     NotifySide = "Right",
     ShowCustomCursor = true,
@@ -39,18 +37,12 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -- Vars
-local AimbotEnabled = false
-local AimbotSmoothness = 1
-local AimbotFOV = 90
-local AimbotTeamCheck = false
-local AimbotPart = "HumanoidRootPart"
-local WallCheck = false
-local FOVCircleEnabled = false
-local FOVSize = 100
-local RainbowFOV = false
-local AutoShootEnabled = false
-local AutoShootTeamCheck = false
-local RapidFireEnabled = false
+local NoLockEnabled = false
+local NoLockSmoothness = 0.05
+local NoLockFOV = 90
+local NoLockTeamCheck = false
+local NoLockPart = "Head"
+local NoLockWallCheck = false
 
 local ESPEnabled = false
 local ESPTeamCheck = false
@@ -66,6 +58,12 @@ local RainbowTracers = false
 local ChamsEnabled = false
 local ChamsTeamCheck = false
 local RainbowChams = false
+
+local HitboxEnabled = false
+local HitboxSize = 19
+local HitboxTransparency = 0.7
+
+local AutoClickerEnabled = false
 
 local SpeedEnabled = false
 local SpeedValue = 20
@@ -97,23 +95,85 @@ FOVCircle.Filled = false
 local BV, BG
 
 -- Death Check
-local function isAlive()
-    local char = LocalPlayer.Character
+local function isAlive(char)
+    char = char or LocalPlayer.Character
     return char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0
 end
 
--- Functions
+-- Fix: Safe Hitbox Function (Prevents "Object is locked" error)
+local function safeSetProperty(instance, prop, value)
+    if instance and not instance:IsDescendantOf(LocalPlayer.Character) then
+        pcall(function()
+            instance[prop] = value
+        end)
+    end
+end
+
+-- Hitbox Expander
+RunService.RenderStepped:Connect(function()
+    if not isAlive() then return end
+
+    if HitboxEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and isAlive(player.Character) then
+                local hrp = player.Character.HumanoidRootPart
+                -- Save original size
+                if not hrp:FindFirstChild("OriginalSize") then
+                    local orig = Instance.new("Vector3Value")
+                    orig.Name = "OriginalSize"
+                    orig.Value = hrp.Size
+                    orig.Parent = hrp
+                end
+                
+                safeSetProperty(hrp, "Size", Vector3.new(HitboxSize, HitboxSize, HitboxSize))
+                safeSetProperty(hrp, "Transparency", HitboxTransparency)
+                safeSetProperty(hrp, "Material", Enum.Material.ForceField)
+                safeSetProperty(hrp, "CanCollide", false)
+            end
+        end
+    else
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = player.Character.HumanoidRootPart
+                local orig = hrp:FindFirstChild("OriginalSize")
+                if orig then
+                    safeSetProperty(hrp, "Size", orig.Value)
+                    orig:Destroy()
+                else
+                    safeSetProperty(hrp, "Size", Vector3.new(2, 2, 1))
+                end
+                safeSetProperty(hrp, "Transparency", 1)
+                safeSetProperty(hrp, "Material", Enum.Material.Plastic)
+            end
+        end
+    end
+end)
+
+-- Auto Clicker (Rapid Fire Fix)
+local mouse = LocalPlayer:GetMouse()
+mouse.Button1Down:Connect(function()
+    if AutoClickerEnabled then
+        -- Clicks fast when enabled
+        for i = 1, 5 do
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            task.wait(0.01)
+        end
+    end
+end)
+
+-- NoLock Logic
 local function GetNearestTarget()
     if not isAlive() then return nil end
     local nearestTarget = nil
     local shortestDistance = math.huge
 
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
-            local partToAim = v.Character:FindFirstChild(AimbotPart)
+        if v ~= LocalPlayer and isAlive(v.Character) then
+            local partToAim = v.Character:FindFirstChild(NoLockPart)
             if not partToAim then
-                if AimbotPart == "Legs" then partToAim = v.Character:FindFirstChild("LeftLeg") or v.Character:FindFirstChild("Left Leg")
-                elseif AimbotPart == "Torso" then partToAim = v.Character:FindFirstChild("UpperTorso") or v.Character:FindFirstChild("Torso")
+                if NoLockPart == "Legs" then partToAim = v.Character:FindFirstChild("LeftLeg") or v.Character:FindFirstChild("Left Leg")
+                elseif NoLockPart == "Torso" then partToAim = v.Character:FindFirstChild("UpperTorso") or v.Character:FindFirstChild("Torso")
                 else partToAim = v.Character:FindFirstChild("Head") end
             end
             
@@ -124,10 +184,10 @@ local function GetNearestTarget()
             local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
             local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
 
-            if onScreen and distance < (FOVSize / 2) then
-                if AimbotTeamCheck and v.Team == LocalPlayer.Team then continue end
+            if onScreen and distance < (NoLockFOV / 2) then
+                if NoLockTeamCheck and v.Team == LocalPlayer.Team then continue end
 
-                if WallCheck then
+                if NoLockWallCheck then
                     local raycastParams = RaycastParams.new()
                     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
                     local result = workspace:Raycast(Camera.CFrame.Position, (targetPos - Camera.CFrame.Position).Unit * 1000, raycastParams)
@@ -145,17 +205,12 @@ local function GetNearestTarget()
 end
 
 local function UpdateFOVCircle()
-    FOVCircle.Radius = FOVSize
+    FOVCircle.Radius = NoLockFOV
     FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    if RainbowFOV then
-        local hue = tick() % 5 / 5
-        FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
-    else
-        FOVCircle.Color = Color3.new(1, 1, 1)
-    end
-    FOVCircle.Visible = FOVCircleEnabled
+    FOVCircle.Visible = NoLockEnabled
 end
 
+-- ESP Functions (Simplified)
 local function UpdateESP()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= LocalPlayer and not ESPObjects[v] then
@@ -168,7 +223,7 @@ local function UpdateESP()
     for _, v in pairs(Players:GetPlayers()) do
         local objects = ESPObjects[v]; if not objects then continue end
         local ShouldShow = false; local color = Color3.new(1, 1, 1)
-        if ESPEnabled and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+        if ESPEnabled and isAlive(v.Character) then
             if not (ESPTeamCheck and v.Team == LocalPlayer.Team) then
                 local pos, onScreen = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
                 if onScreen then
@@ -190,7 +245,7 @@ local function UpdateSkeletonESP()
     if not SkeletonESPEnabled then return end
 
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character then
+        if v ~= LocalPlayer and v.Character and isAlive(v.Character) then
             if not (SkeletonTeamCheck and v.Team == LocalPlayer.Team) then
                 local hum = v.Character:FindFirstChild("Humanoid")
                 if hum then
@@ -241,7 +296,7 @@ local function UpdateTracers()
     for _, v in pairs(Players:GetPlayers()) do
         local objects = TracerObjects[v]; if not objects then continue end
         local ShouldShow = false; local color = Color3.new(1, 1, 1)
-        if TracersEnabled and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+        if TracersEnabled and isAlive(v.Character) then
             if not (TracersTeamCheck and v.Team == LocalPlayer.Team) then
                 local pos, onScreen = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
                 if onScreen then
@@ -259,7 +314,7 @@ end
 local function UpdateChams()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= LocalPlayer and v.Character then
-            if ChamsEnabled and not (ChamsTeamCheck and v.Team == LocalPlayer.Team) then
+            if ChamsEnabled and not (ChamsTeamCheck and v.Team == LocalPlayer.Team) and isAlive(v.Character) then
                 if not ChamsObjects[v] then
                     local h = Instance.new("Highlight"); h.Name = "NLHighlight"; h.FillTransparency = 0.5; h.Adornee = v.Character; h.Parent = v.Character
                     ChamsObjects[v] = h
@@ -271,32 +326,6 @@ local function UpdateChams()
             end
         end
     end
-end
-
-local function SetRapidFire(enabled)
-    pcall(function()
-        if game:GetService("ReplicatedStorage"):FindFirstChild("Modules") then
-            local module = game:GetService("ReplicatedStorage").Modules:FindFirstChild("Client")
-            if module then
-                local config = module:FindFirstChild("Config")
-                if config then
-                    local items = config:FindFirstChild("Items")
-                    if items then
-                        local Items = require(items)
-                        for _, data in pairs(Items) do
-                            if typeof(data) == "table" and data.RPM then
-                                data.RPM = enabled and 9999 or data.RPM
-                                if data.ProjectileStats then
-                                    data.ProjectileStats.Count = enabled and 5 or 1
-                                    data.ProjectileStats.Velocity = enabled and 3000 or data.ProjectileStats.Velocity
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
 end
 
 local function SetXray(enable)
@@ -346,31 +375,28 @@ local function UpdateFly2()
     end
 end
 
--- Main Loop
+-- NoLock Loop (Hold Right Click to Lock)
 RunService.RenderStepped:Connect(function()
     if not isAlive() then return end
     
-    Camera.FieldOfView = PlayerFOV
+    UpdateFOVCircle()
+    UpdateESP()
+    UpdateTracers()
+    UpdateChams()
+    UpdateSkeletonESP()
+    UpdateFly2()
 
-    if AimbotEnabled then
+    -- NoLock Logic (Hold Right Click)
+    if NoLockEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = GetNearestTarget()
         if target then
-            local partToAim = target.Character:FindFirstChild(AimbotPart) or target.Character:FindFirstChild("Head") or target.Character.HumanoidRootPart
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, partToAim.Position), (AimbotSmoothness / 100))
-        end
-    end
-    
-    if AutoShootEnabled then
-        local ray = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        local raycastParams = RaycastParams.new(); raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}; raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
-        if result then
-            local char = result.Instance:FindFirstAncestorOfClass("Model")
-            if char then
-                local plr = Players:GetPlayerFromCharacter(char)
-                if plr and plr ~= LocalPlayer and not (AutoShootTeamCheck and plr.Team == LocalPlayer.Team) then
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1); VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                end
+            local partToAim = target.Character:FindFirstChild(NoLockPart) or target.Character:FindFirstChild("Head")
+            if partToAim then
+                -- Manipulate CFrame to lock on without moving camera
+                local oldCFrame = Camera.CFrame
+                Camera.CFrame = CFrame.new(oldCFrame.Position, partToAim.Position)
+                task.wait() -- force update
+                Camera.CFrame = oldCFrame
             end
         end
     end
@@ -382,12 +408,11 @@ RunService.RenderStepped:Connect(function()
         if JumpEnabled and humanoid then humanoid.JumpPower = JumpValue elseif humanoid then humanoid.JumpPower = 50 end
         if GravityEnabled then workspace.Gravity = GravityValue end
         if NoAirEnabled and humanoid and rootPart then local vel = rootPart.Velocity; rootPart.Velocity = Vector3.new(vel.X, 0, vel.Z) end
-        UpdateFly2()
         if SpinBotEnabled and rootPart then rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(SpinSpeed), 0) end
         if NoclipEnabled then for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
     end
     
-    UpdateFOVCircle(); UpdateESP(); UpdateTracers(); UpdateChams(); UpdateSkeletonESP()
+    Camera.FieldOfView = PlayerFOV
 end)
 
 UserInputService.JumpRequest:Connect(function()
@@ -398,28 +423,19 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- GUI SETUP
-local AimbotLeft = Tabs.Aimbot:AddLeftGroupbox("Aimbot Main", "boxes")
-AimbotLeft:AddToggle("AimbotEnabled", {Text = "Enable Aimbot", Default = false, Callback = function(val) AimbotEnabled = val end})
-AimbotLeft:AddSlider("AimbotSmoothness", {Text = "Smoothness", Min = 1, Max = 100, Default = 1, Callback = function(val) AimbotSmoothness = val end})
-AimbotLeft:AddSlider("FOVSize", {Text = "FOV Size", Min = 10, Max = 500, Default = 90, Callback = function(val) FOVSize = val end})
-AimbotLeft:AddToggle("FOVCircleEnabled", {Text = "Show FOV Circle", Default = false, Callback = function(val) FOVCircleEnabled = val end})
-AimbotLeft:AddToggle("RainbowFOV", {Text = "Rainbow FOV", Default = false, Callback = function(val) RainbowFOV = val end})
-AimbotLeft:AddDropdown("AimPart", {Values = {"Head", "Torso", "Legs", "HumanoidRootPart"}, Default = "HumanoidRootPart", Callback = function(val) 
-    if val == 'HumanoidRootPart' then AimbotPart = 'HumanoidRootPart' 
-    elseif val == 'Torso' then AimbotPart = 'UpperTorso'
-    elseif val == 'Legs' then AimbotPart = 'LeftLeg'
-    end
-end})
-AimbotLeft:AddToggle("WallCheck", {Text = "Wall Check", Default = false, Callback = function(val) WallCheck = val end})
-AimbotLeft:AddToggle("AimbotTeamCheck", {Text = "Team Check", Default = false, Callback = function(val) AimbotTeamCheck = val end})
+local AimbotLeft = Tabs.Aimbot:AddLeftGroupbox("NoLock", "boxes")
+AimbotLeft:AddToggle("NoLockEnabled", {Text = "Enable NoLock (Hold RMB)", Default = false, Callback = function(val) NoLockEnabled = val end})
+AimbotLeft:AddSlider("NoLockSmoothness", {Text = "Smoothness", Min = 1, Max = 100, Default = 5, Callback = function(val) NoLockSmoothness = val / 100 end})
+AimbotLeft:AddSlider("NoLockFOV", {Text = "FOV Size", Min = 10, Max = 500, Default = 90, Callback = function(val) NoLockFOV = val end})
+AimbotLeft:AddToggle("FOVCircleEnabled", {Text = "Show FOV Circle", Default = false, Callback = function(val) FOVCircle.Visible = val end})
+AimbotLeft:AddDropdown("AimPart", {Values = {"Head", "Torso", "Legs"}, Default = "Head", Callback = function(val) NoLockPart = val end})
+AimbotLeft:AddToggle("WallCheck", {Text = "Wall Check", Default = false, Callback = function(val) NoLockWallCheck = val end})
+AimbotLeft:AddToggle("TeamCheck", {Text = "Team Check", Default = false, Callback = function(val) NoLockTeamCheck = val end})
 
 local AimbotRight = Tabs.Aimbot:AddRightGroupbox("Extras", "boxes")
-AimbotRight:AddToggle("AutoShoot", {Text = "Auto Shoot", Default = false, Callback = function(val) AutoShootEnabled = val end})
-AimbotRight:AddToggle("AutoShootTeamCheck", {Text = "Team Check", Default = false, Callback = function(val) AutoShootTeamCheck = val end})
-AimbotRight:AddToggle("RapidFire", {Text = "Rapid Fire", Default = false, Callback = function(val) 
-    RapidFireEnabled = val
-    SetRapidFire(val)
-end})
+AimbotRight:AddToggle("HitboxEnabled", {Text = "Hitbox Expander", Default = false, Callback = function(val) HitboxEnabled = val end})
+AimbotRight:AddSlider("HitboxSize", {Text = "Hitbox Size", Min = 1, Max = 50, Default = 19, Callback = function(val) HitboxSize = val end})
+AimbotRight:AddToggle("AutoClicker", {Text = "Auto Clicker", Default = false, Callback = function(val) AutoClickerEnabled = val end})
 
 local VisLeft = Tabs.Visuals:AddLeftGroupbox("ESP Settings", "boxes")
 VisLeft:AddToggle("ESPEnabled", {Text = "Enable ESP", Default = false, Callback = function(val) ESPEnabled = val end})
@@ -443,9 +459,18 @@ WorldLeft:AddToggle("XrayEnabled", {Text = "Xray", Default = false, Callback = f
 WorldLeft:AddToggle("NightMode", {Text = "Night Mode", Default = false, Callback = function(val) 
     if val then Lighting.TimeOfDay = 0 else Lighting.TimeOfDay = 12 end
 end})
-WorldLeft:AddButton("Anti Lag", function()
-    for _, v in pairs(game:GetDescendants()) do if v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") then v:Destroy() end end
-    Library:Notify("Cleaned up lag", 5)
+WorldLeft:AddButton("Anti Lag (VFX/Textures)", function()
+    local count = 0
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") then
+            v:Destroy()
+            count = count + 1
+        elseif v:IsA("Texture") or v:IsA("Decal") then
+            v:Destroy()
+            count = count + 1
+        end
+    end
+    Library:Notify("Removed " .. count .. " objects", 5)
 end)
 
 local PlrLeft = Tabs.Player:AddLeftGroupbox("Visuals", "boxes")
@@ -470,8 +495,8 @@ PlrMisc:AddSlider("Fly2Speed", {Text = "Fly Speed", Min = 10, Max = 200, Default
 PlrMisc:AddToggle("SpinBotEnabled", {Text = "SpinBot", Default = false, Callback = function(val) SpinBotEnabled = val end})
 PlrMisc:AddSlider("SpinSpeed", {Text = "Spin Speed", Min = 1, Max = 100, Default = 20, Callback = function(val) SpinSpeed = val end})
 PlrMisc:AddToggle("NoclipEnabled", {Text = "Noclip", Default = false, Callback = function(val) NoclipEnabled = val end})
-PlrMisc:AddToggle("InvisEnabled", {Text = "Invisible", Default = false, Callback = function(val) 
-    if val then
+PlrMisc:AddLabel("Toggle Invisibility"):AddKeyPicker("InvisKey", {Default = "Z", NoUI = true, Text = "Toggle Invisible (Z)", Mode = "Toggle", Callback = function(Value)
+    if Value then
         local char = LocalPlayer.Character
         if char then
             local savedpos = char.HumanoidRootPart.CFrame
@@ -479,9 +504,11 @@ PlrMisc:AddToggle("InvisEnabled", {Text = "Invisible", Default = false, Callback
             task.wait(0.15)
             local Seat = Instance.new("Seat", workspace); Seat.Anchored = false; Seat.CanCollide = false; Seat.Name = "invischair"; Seat.Transparency = 1; Seat.Position = Vector3.new(-25.95, 84, 3537.55)
             local Weld = Instance.new("Weld", Seat); Weld.Part0 = Seat; Weld.Part1 = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"); Seat.CFrame = savedpos
+            Library:Notify("Invisible Enabled", 2)
         end
     else
         if workspace:FindFirstChild("invischair") then workspace.invischair:Destroy() end
+        Library:Notify("Invisible Disabled", 2)
     end
 end})
 
@@ -501,13 +528,13 @@ SetLeft:AddButton("Serverhop", function()
     if #servers > 0 then TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)].id) end
 end)
 SetLeft:AddButton("Rejoin", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId) end)
-SetLeft:AddButton("Unload", function() Library:Unload() end)
 SetLeft:AddButton("Exit", function() game:Shutdown() end)
+SetLeft:AddButton("Unload", function() Library:Unload() end)
 
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+SaveManager:SetIgnoreIndexes({ "MenuKeybind", "InvisKey", "AimbotKey" })
 ThemeManager:SetFolder("MoondyHub")
 SaveManager:SetFolder("MoondyHub/Config")
 SaveManager:BuildConfigSection(Tabs.Settings)
@@ -529,9 +556,14 @@ local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(
 end)
 
 local MenuGroup = Tabs.Settings:AddLeftGroupbox("Menu Keybind", "wrench")
-MenuGroup:AddLabel("Toggle UI"):AddKeyPicker("MenuKeybind", { Default = "K", NoUI = false, Text = "Open / Close", Mode = "Toggle" })
+MenuGroup:AddLabel("Toggle UI (K)"):AddKeyPicker("MenuKeybind", { Default = "K", NoUI = false, Text = "Open / Close", Mode = "Toggle" })
+MenuGroup:AddLabel("Toggle Aimbot (P)"):AddKeyPicker("AimbotKey", { Default = "P", NoUI = true, Text = "Toggle NoLock", Mode = "Toggle", Callback = function(Value)
+    NoLockEnabled = Value
+    Toggles.NoLockEnabled.Value = Value
+    Options.NoLockEnabled:SetValue(Value)
+end})
 
 Library.ToggleKeybind = Options.MenuKeybind
-Library:Notify("Loaded Moondy Hub! Press K to toggle.", 5)
+Library:Notify("Loaded Moondy Hub! Hold RMB for NoLock.", 5)
 
 SaveManager:LoadAutoloadConfig()
