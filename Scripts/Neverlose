@@ -1,0 +1,545 @@
+--[[
+    WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+
+-- Load Library
+local NEVERLOSE = loadstring(game:HttpGet("https://raw.githubusercontent.com/CludeHub/SourceCludeLib/refs/heads/main/NerverLoseLibEdited.lua"))()
+local Window = NEVERLOSE:AddWindow("NEVERLOSE", "CS:GO CHEAT", 'original')
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Variables
+local AimbotEnabled = false
+local AimbotSmoothness = 1
+local AimbotFOV = 90
+local AimbotTeamCheck = false
+local AimbotPart = "HumanoidRootPart"
+local WallCheck = false
+local FOVCircleEnabled = false
+local FOVSize = 100
+local RainbowFOV = false
+
+-- Visuals
+local ESPEnabled = false
+local ESPTeamCheck = false
+local ESPBoxes = false
+local ESPNames = false
+local ESPHealth = false
+local RainbowESP = false
+
+local SkeletonESPEnabled = false
+local SkeletonTeamCheck = false
+
+local TracersEnabled = false
+local TracersTeamCheck = false
+local RainbowTracers = false
+
+local ChamsEnabled = false
+local ChamsTeamCheck = false
+local RainbowChams = false
+
+-- World (Items)
+local ItemESPEnabled = false
+
+-- Exploits
+local SpeedEnabled = false
+local SpeedValue = 20
+local JumpEnabled = false
+local JumpValue = 50
+local InfiniteJumpEnabled = false
+local GravityEnabled = false
+local GravityValue = 196.2
+local NoAirEnabled = false
+local FlyEnabled = false
+local Fly2Enabled = false
+local Fly2Speed = 50
+local InvisEnabled = false
+local SpinBotEnabled = false
+local SpinSpeed = 20
+local NoclipEnabled = false
+local PlayerFOV = 70
+
+-- Auto Shoot
+local AutoShootEnabled = false
+local AutoShootTeamCheck = false
+local RapidFireEnabled = false
+
+-- Caches
+local ESPObjects = {}
+local TracerObjects = {}
+local ChamsObjects = {}
+local SkeletonObjects = {}
+local ItemESPObjects = {}
+
+-- Drawing
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Thickness = 1
+FOVCircle.NumSides = 50
+FOVCircle.Filled = false
+
+-- Fly Variables
+local BV, BG
+
+-- Functions
+local function GetNearestTarget()
+    local nearestTarget = nil
+    local shortestDistance = math.huge
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+            local partToAim = v.Character:FindFirstChild(AimbotPart)
+            if not partToAim then
+                if AimbotPart == "Legs" then partToAim = v.Character:FindFirstChild("LeftLeg") or v.Character:FindFirstChild("Left Leg")
+                elseif AimbotPart == "Torso" then partToAim = v.Character:FindFirstChild("UpperTorso") or v.Character:FindFirstChild("Torso")
+                else partToAim = v.Character:FindFirstChild("Head") end
+            end
+            
+            if not partToAim then continue end
+
+            local targetPos = partToAim.Position
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
+            local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+
+            if onScreen and distance < (FOVSize / 2) then
+                if AimbotTeamCheck and v.Team == LocalPlayer.Team then continue end
+
+                if WallCheck then
+                    local raycastParams = RaycastParams.new()
+                    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+                    local result = workspace:Raycast(Camera.CFrame.Position, (targetPos - Camera.CFrame.Position).Unit * 1000, raycastParams)
+                    if result and result.Instance and not result.Instance:IsDescendantOf(v.Character) then continue end
+                end
+
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    nearestTarget = v
+                end
+            end
+        end
+    end
+    return nearestTarget
+end
+
+local function UpdateFOVCircle()
+    FOVCircle.Radius = FOVSize
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    if RainbowFOV then
+        local hue = tick() % 5 / 5
+        FOVCircle.Color = Color3.fromHSV(hue, 1, 1)
+    else
+        FOVCircle.Color = Color3.new(1, 1, 1)
+    end
+    FOVCircle.Visible = FOVCircleEnabled
+end
+
+local function UpdateESP()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and not ESPObjects[v] then
+            local Box = Drawing.new("Square"); Box.Thickness = 1
+            local Name = Drawing.new("Text"); Name.Size = 13; Name.Center = true; Name.Outline = true
+            local Health = Drawing.new("Text"); Health.Size = 13; Health.Center = true; Health.Outline = true
+            ESPObjects[v] = {Box = Box, Name = Name, Health = Health}
+        end
+    end
+    for _, v in pairs(Players:GetPlayers()) do
+        local objects = ESPObjects[v]; if not objects then continue end
+        local ShouldShow = false; local color = Color3.new(1, 1, 1)
+        if ESPEnabled and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+            if not (ESPTeamCheck and v.Team == LocalPlayer.Team) then
+                local pos, onScreen = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+                if onScreen then
+                    ShouldShow = true
+                    if RainbowESP then color = Color3.fromHSV(tick() % 5 / 5, 1, 1) end
+                    objects.Box.Size = Vector2.new(30, 60); objects.Box.Position = Vector2.new(pos.X - 15, pos.Y - 30); objects.Box.Color = color
+                    objects.Name.Text = v.Name; objects.Name.Position = Vector2.new(pos.X, pos.Y - 40); objects.Name.Color = color
+                    objects.Health.Text = math.floor(v.Character.Humanoid.Health); objects.Health.Position = Vector2.new(pos.X, pos.Y - 55); objects.Health.Color = Color3.fromRGB(0, 255, 0)
+                end
+            end
+        end
+        objects.Box.Visible = ShouldShow and ESPBoxes; objects.Name.Visible = ShouldShow and ESPNames; objects.Health.Visible = ShouldShow and ESPHealth
+    end
+end
+
+local function UpdateSkeletonESP()
+    for _, line in pairs(SkeletonObjects) do line:Remove() end
+    table.clear(SkeletonObjects)
+    if not SkeletonESPEnabled then return end
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character then
+            if not (SkeletonTeamCheck and v.Team == LocalPlayer.Team) then
+                local hum = v.Character:FindFirstChild("Humanoid")
+                if hum then
+                    local connections = {
+                        {"Head", "UpperTorso"},
+                        {"UpperTorso", "LeftUpperArm"},
+                        {"UpperTorso", "RightUpperArm"},
+                        {"LeftUpperArm", "LeftLowerArm"},
+                        {"RightUpperArm", "RightLowerArm"},
+                        {"UpperTorso", "LowerTorso"},
+                        {"LowerTorso", "LeftUpperLeg"},
+                        {"LowerTorso", "RightUpperLeg"},
+                        {"LeftUpperLeg", "LeftLowerLeg"},
+                        {"RightUpperLeg", "RightLowerLeg"}
+                    }
+                    local r6_connections = {
+                        {"Head", "Torso"},
+                        {"Torso", "Left Arm"},
+                        {"Torso", "Right Arm"},
+                        {"Torso", "Left Leg"},
+                        {"Torso", "Right Leg"}
+                    }
+                    local isR15 = hum.RigType == Enum.HumanoidRigType.R15
+                    local selectedConnections = isR15 and connections or r6_connections
+
+                    for _, conn in pairs(selectedConnections) do
+                        local part1 = v.Character:FindFirstChild(conn[1])
+                        local part2 = v.Character:FindFirstChild(conn[2])
+                        if part1 and part2 then
+                            local pos1, onScreen1 = Camera:WorldToViewportPoint(part1.Position)
+                            local pos2, onScreen2 = Camera:WorldToViewportPoint(part2.Position)
+                            if onScreen1 and onScreen2 then
+                                local line = Drawing.new("Line")
+                                line.Thickness = 1
+                                line.Color = RainbowESP and Color3.fromHSV(tick() % 5 / 5, 1, 1) or Color3.new(1, 1, 1)
+                                line.From = Vector2.new(pos1.X, pos1.Y)
+                                line.To = Vector2.new(pos2.X, pos2.Y)
+                                line.Visible = true
+                                table.insert(SkeletonObjects, line)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function UpdateTracers()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and not TracerObjects[v] then
+            local Line = Drawing.new("Line"); Line.Thickness = 1
+            TracerObjects[v] = {Line = Line}
+        end
+    end
+    for _, v in pairs(Players:GetPlayers()) do
+        local objects = TracerObjects[v]; if not objects then continue end
+        local ShouldShow = false; local color = Color3.new(1, 1, 1)
+        if TracersEnabled and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+            if not (TracersTeamCheck and v.Team == LocalPlayer.Team) then
+                local pos, onScreen = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+                if onScreen then
+                    ShouldShow = true
+                    local screenPos = Vector2.new(pos.X, pos.Y); local startPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    if RainbowTracers then color = Color3.fromHSV(tick() % 5 / 5, 1, 1) end
+                    objects.Line.From = startPos; objects.Line.To = screenPos; objects.Line.Color = color
+                end
+            end
+        end
+        objects.Line.Visible = ShouldShow
+    end
+end
+
+local function UpdateChams()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character then
+            if ChamsEnabled and not (ChamsTeamCheck and v.Team == LocalPlayer.Team) then
+                if not ChamsObjects[v] then
+                    local h = Instance.new("Highlight"); h.Name = "NLHighlight"; h.FillTransparency = 0.5; h.Adornee = v.Character; h.Parent = v.Character
+                    ChamsObjects[v] = h
+                end
+                ChamsObjects[v].Enabled = true
+                ChamsObjects[v].FillColor = RainbowChams and Color3.fromHSV(tick() % 5 / 5, 1, 1) or Color3.fromRGB(255, 0, 0)
+            else
+                if ChamsObjects[v] then ChamsObjects[v].Enabled = false end
+            end
+        end
+    end
+end
+
+-- Rapid Fire (Module Method)
+local function SetRapidFire(enabled)
+    pcall(function()
+        if game:GetService("ReplicatedStorage"):FindFirstChild("Modules") then
+            local module = game:GetService("ReplicatedStorage").Modules:FindFirstChild("Client")
+            if module then
+                local config = module:FindFirstChild("Config")
+                if config then
+                    local items = config:FindFirstChild("Items")
+                    if items then
+                        local Items = require(items)
+                        for _, data in pairs(Items) do
+                            if typeof(data) == "table" and data.RPM then
+                                data.RPM = enabled and 9999 or data.RPM
+                                if data.ProjectileStats then
+                                    data.ProjectileStats.Count = enabled and 5 or 1
+                                    data.ProjectileStats.Velocity = enabled and 3000 or data.ProjectileStats.Velocity
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Xray
+local function SetXray(enable)
+    if enable then
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character) and v:GetAttribute("Xrayed") == nil then
+                v:SetAttribute("Xrayed", true)
+                v:SetAttribute("OrigTrans", v.Transparency)
+                v.Transparency = 0.5
+            end
+        end
+    else
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v:GetAttribute("Xrayed") then
+                local orig = v:GetAttribute("OrigTrans")
+                if orig ~= nil then v.Transparency = orig end
+                v:SetAttribute("Xrayed", nil)
+            end
+        end
+    end
+end
+
+-- Fly 2
+local function UpdateFly2()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    if Fly2Enabled then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = true end
+        if not BV then BV = Instance.new("BodyVelocity"); BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge); BV.Parent = char.HumanoidRootPart end
+        if not BG then BG = Instance.new("BodyGyro"); BG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge); BG.P = 10000; BG.Parent = char.HumanoidRootPart end
+        
+        local moveVec = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVec = moveVec + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVec = moveVec - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVec = moveVec - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVec = moveVec + Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVec = moveVec + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVec = moveVec - Vector3.new(0, 1, 0) end
+        
+        BV.Velocity = (moveVec.Magnitude > 0 and moveVec.Unit * Fly2Speed) or Vector3.new(0,0,0)
+        BG.CFrame = Camera.CFrame
+    else
+        if BV then BV:Destroy() BV = nil end
+        if BG then BG:Destroy() BG = nil end
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = false end
+    end
+end
+
+-- Main Loop
+RunService.RenderStepped:Connect(function()
+    -- Player FOV
+    Camera.FieldOfView = PlayerFOV
+
+    if AimbotEnabled then
+        local target = GetNearestTarget()
+        if target then
+            local partToAim = target.Character:FindFirstChild(AimbotPart) or target.Character:FindFirstChild("Head") or target.Character.HumanoidRootPart
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, partToAim.Position), (AimbotSmoothness / 100))
+        end
+    end
+    if AutoShootEnabled then
+        local ray = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local raycastParams = RaycastParams.new(); raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}; raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
+        if result then
+            local char = result.Instance:FindFirstAncestorOfClass("Model")
+            if char then
+                local plr = Players:GetPlayerFromCharacter(char)
+                if plr and plr ~= LocalPlayer and not (AutoShootTeamCheck and plr.Team == LocalPlayer.Team) then
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1); VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                end
+            end
+        end
+    end
+
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid"); local rootPart = char:FindFirstChild("HumanoidRootPart")
+        if SpeedEnabled and humanoid and rootPart then rootPart.CFrame = rootPart.CFrame + (humanoid.MoveDirection * ((SpeedValue / 10) * 0.5)) end
+        if JumpEnabled and humanoid then humanoid.JumpPower = JumpValue elseif humanoid then humanoid.JumpPower = 50 end
+        if GravityEnabled then workspace.Gravity = GravityValue end
+        if NoAirEnabled and humanoid and rootPart then local vel = rootPart.Velocity; rootPart.Velocity = Vector3.new(vel.X, 0, vel.Z) end
+        UpdateFly2()
+        if SpinBotEnabled and rootPart then rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(SpinSpeed), 0) end
+        if NoclipEnabled then for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
+    end
+    
+    UpdateFOVCircle(); UpdateESP(); UpdateTracers(); UpdateChams(); UpdateSkeletonESP()
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if InfiniteJumpEnabled then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum:ChangeState("Jumping") end
+    end
+end)
+
+-- GUI SETUP
+Window:AddTabLabel('Aimbot')
+local TabAimbot = Window:AddTab('Aimbot', 'CrossHair')
+
+local AimMain = TabAimbot:AddSection('Main', "left")
+AimMain:AddToggle('Enable Aimbot', false, function(val) AimbotEnabled = val end)
+AimMain:AddSlider('Smoothness', 1, 100, 1, function(val) AimbotSmoothness = val end)
+AimMain:AddSlider('FOV Size', 10, 500, 90, function(val) FOVSize = val end)
+AimMain:AddToggle('Show FOV Circle', false, function(val) FOVCircleEnabled = val end)
+AimMain:AddToggle('Rainbow FOV Circle', false, function(val) RainbowFOV = val end)
+AimMain:AddDropdown('Aim Part', {'Head', 'Torso', 'Legs'}, 'HumanoidRootPart', function(val) 
+    if val == 'HumanoidRootPart' then AimbotPart = 'HumanoidRootPart' 
+    elseif val == 'Torso' then AimbotPart = 'UpperTorso'
+    elseif val == 'Legs' then AimbotPart = 'LeftLeg'
+    end
+end)
+AimMain:AddToggle('Wall Check', false, function(val) WallCheck = val end)
+AimMain:AddToggle('Team Check', false, function(val) AimbotTeamCheck = val end)
+
+local AimRage = TabAimbot:AddSection('Rage', "right")
+AimRage:AddToggle('Enable Ragebot', false, function(val) print("Rage:", val) end)
+AimRage:AddToggle('Silent Aim', false, function(val) print("Silent:", val) end)
+
+local AimLegit = TabAimbot:AddSection('Legit', "right")
+AimLegit:AddToggle('Auto Shoot', false, function(val) AutoShootEnabled = val end)
+AimLegit:AddToggle('Team Check', false, function(val) AutoShootTeamCheck = val end)
+AimLegit:AddToggle('Rapid Fire (Module)', false, function(val) 
+    RapidFireEnabled = val
+    SetRapidFire(val)
+end)
+
+Window:AddTabLabel('Visual')
+local TabVisual = Window:AddTab('Visual', 'user')
+
+local VisPlayer = TabVisual:AddSection('Player', "left")
+VisPlayer:AddToggle('Enable ESP', false, function(val) ESPEnabled = val end)
+VisPlayer:AddToggle('Boxes', false, function(val) ESPBoxes = val end)
+VisPlayer:AddToggle('Names', false, function(val) ESPNames = val end)
+VisPlayer:AddToggle('Health', false, function(val) ESPHealth = val end)
+VisPlayer:AddToggle('Rainbow ESP', false, function(val) RainbowESP = val end)
+VisPlayer:AddToggle('Team Check', false, function(val) ESPTeamCheck = val end)
+VisPlayer:AddToggle('Skeleton ESP', false, function(val) SkeletonESPEnabled = val end)
+VisPlayer:AddToggle('Tracers', false, function(val) TracersEnabled = val end)
+VisPlayer:AddToggle('Rainbow Tracers', false, function(val) RainbowTracers = val end)
+VisPlayer:AddToggle('Team Check', false, function(val) TracersTeamCheck = val end)
+VisPlayer:AddToggle('Chams', false, function(val) ChamsEnabled = val end)
+VisPlayer:AddToggle('Rainbow Chams', false, function(val) RainbowChams = val end)
+VisPlayer:AddToggle('Team Check', false, function(val) ChamsTeamCheck = val end)
+
+Window:AddTabLabel('World')
+local TabWorld = Window:AddTab('World', 'earth')
+
+local WorldVisuals = TabWorld:AddSection('Visuals', "left")
+WorldVisuals:AddToggle('Xray', false, function(val) XrayEnabled = val; SetXray(val) end)
+WorldVisuals:AddToggle('Night Mode', false, function(val) 
+    if val then Lighting.TimeOfDay = 0 else Lighting.TimeOfDay = 12 end
+end)
+WorldVisuals:AddToggle('Anti Lag', false, function(val)
+    if val then for _, v in pairs(game:GetDescendants()) do if v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") then v:Destroy() end end end
+end)
+
+local WorldItems = TabWorld:AddSection('Items', "left")
+WorldItems:AddToggle('Item ESP', false, function(val) ItemESPEnabled = val end)
+
+Window:AddTabLabel('Player')
+local TabPlayer = Window:AddTab('Player', 'user')
+
+local PlrVisuals = TabPlayer:AddSection('Visuals', "left")
+PlrVisuals:AddSlider('FOV', 30, 120, 70, function(val) PlayerFOV = val end)
+
+local PlrMove = TabPlayer:AddSection('Movement', "left")
+PlrMove:AddToggle('Speed Enabled', false, function(val) SpeedEnabled = val end)
+PlrMove:AddSlider('Speed', 1, 999, 20, function(val) SpeedValue = val end)
+PlrMove:AddToggle('Infinite Jump', false, function(val) InfiniteJumpEnabled = val end)
+PlrMove:AddToggle('Jump Power', false, function(val) JumpEnabled = val end)
+PlrMove:AddSlider('Jump Amount', 1, 999, 50, function(val) JumpValue = val end)
+PlrMove:AddToggle('Low Gravity', false, function(val) 
+    GravityEnabled = val
+    if val then if GravityValue == 196.2 then GravityValue = 50 end else GravityValue = 196.2; workspace.Gravity = 196.2 end
+end)
+PlrMove:AddSlider('Gravity', 0, 999, 50, function(val) GravityValue = val; if GravityEnabled then workspace.Gravity = val end end)
+
+local PlrFly = TabPlayer:AddSection('Fly', "right")
+PlrFly:AddToggle('NoAir / Float', false, function(val) NoAirEnabled = val end)
+PlrFly:AddToggle('Fly 1 (Proohio)', false, function(val) FlyEnabled = val end)
+PlrFly:AddToggle('Fly 2 (Space/Ctrl)', false, function(val) Fly2Enabled = val end)
+PlrFly:AddSlider('Fly 2 Speed', 10, 200, 50, function(val) Fly2Speed = val end)
+
+local PlrMisc = TabPlayer:AddSection('Misc', "right")
+PlrMisc:AddToggle('Invisible', false, function(val) 
+    if val then
+        local char = LocalPlayer.Character
+        if char then
+            local savedpos = char.HumanoidRootPart.CFrame
+            char:MoveTo(Vector3.new(-25.95, 84, 3537.55))
+            task.wait(0.15)
+            local Seat = Instance.new("Seat", workspace); Seat.Anchored = false; Seat.CanCollide = false; Seat.Name = "invischair"; Seat.Transparency = 1; Seat.Position = Vector3.new(-25.95, 84, 3537.55)
+            local Weld = Instance.new("Weld", Seat); Weld.Part0 = Seat; Weld.Part1 = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"); Seat.CFrame = savedpos
+        end
+    else
+        if workspace:FindFirstChild("invischair") then workspace.invischair:Destroy() end
+    end
+end)
+PlrMisc:AddToggle('SpinBot', false, function(val) SpinBotEnabled = val end)
+PlrMisc:AddSlider('Spin Speed', 1, 100, 20, function(val) SpinSpeed = val end)
+PlrMisc:AddToggle('Noclip', false, function(val) NoclipEnabled = val end)
+
+Window:AddTabLabel('Settings')
+local TabSettings = Window:AddTab('Settings', 'gear')
+
+local SetConfig = TabSettings:AddSection('Config', "left")
+SetConfig:AddButton("Serverhop", function()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    local Players = game:GetService("Players")
+    local PlaceId = game.PlaceId
+    
+    local servers = {}
+    local page = 1
+    while true do
+        local success, response = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&sortBy=Players&limit=100&cursor="..(page > 1 and ((page - 1) * 100) or "")))
+        end)
+        if not success then break end
+        for _, server in pairs(response.data) do
+            table.insert(servers, server)
+        end
+        if not response.nextPageCursor then break end
+        page = page + 1
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        TeleportService:TeleportToPlaceInstance(PlaceId, randomServer.id)
+    else
+        warn("No servers found.")
+    end
+end)
+SetConfig:AddButton("Rejoin", function()
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
+end)
+SetConfig:AddButton("Exit", function()
+    game:Shutdown()
+end)
+SetConfig:AddButton("Unload", function()
+    Window:Destroy()
+end)
+
+print("Script Loaded Successfully!")
