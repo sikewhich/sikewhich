@@ -1,0 +1,183 @@
+-- by AI 
+-- am lazy so ai did it 
+-- No hate 
+
+local Players = game:GetService("Players")
+local CoreguiM = game:GetService("CoreGui")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local plr = Players.LocalPlayer
+
+if _G.DesyncLoaded then return end
+_G.DesyncLoaded = true
+
+local invisOn = false
+local savedLocation = nil
+local visualBody = nil
+
+
+local sg = Instance.new("ScreenGui", CoreguiM)
+sg.Name = "MoondyDesyncUI"
+sg.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame", sg)
+mainFrame.Size = UDim2.new(0, 200, 0, 160)
+mainFrame.Position = UDim2.new(0.5, -100, 0.5, -80)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+local uiStroke = Instance.new("UIStroke", mainFrame)
+uiStroke.Color = Color3.fromRGB(170, 0, 255) 
+uiStroke.Thickness = 2
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "MOONDY DESYNC"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+
+local saveBtn = Instance.new("TextButton", mainFrame)
+saveBtn.Size = UDim2.new(0, 160, 0, 35)
+saveBtn.Position = UDim2.new(0.5, -80, 0, 45)
+saveBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+saveBtn.Text = "Save Location"
+saveBtn.TextColor3 = Color3.new(1, 1, 1)
+saveBtn.Font = Enum.Font.SourceSansSemibold
+saveBtn.TextSize = 16
+Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 8)
+
+local toggleBG = Instance.new("TextButton", mainFrame)
+toggleBG.Size = UDim2.new(0, 60, 0, 30)
+toggleBG.Position = UDim2.new(0.5, -30, 0, 100)
+toggleBG.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleBG.Text = ""
+Instance.new("UICorner", toggleBG).CornerRadius = UDim.new(1, 0)
+
+local knob = Instance.new("Frame", toggleBG)
+knob.Size = UDim2.new(0, 26, 0, 26)
+knob.Position = UDim2.new(0, 2, 0.5, -13)
+knob.BackgroundColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+-- Helper to stop animations
+local function toggleAnimations(char, state)
+    local animate = char:FindFirstChild("Animate")
+    if animate then
+        animate.Disabled = not state -- Disable the script to stop animations
+    end
+    
+    -- Stop already playing animations
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+            track:Stop()
+        end
+    end
+end
+
+local function setTransparency(char, val)
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+            p.Transparency = val
+        end
+    end
+end
+
+local function createVisuals(cf)
+    local char = plr.Character
+    if not char then return end
+    
+    char.Archivable = true
+    local clone = char:Clone()
+    char.Archivable = false
+    clone.Name = "MoondyClone"
+    clone.Parent = workspace
+    
+    local hrp = clone:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.CFrame = cf hrp.Anchored = true end
+    
+    for _, part in ipairs(clone:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = true
+            part.CanCollide = false
+            part.Transparency = 0.6
+            part.Material = Enum.Material.ForceField
+            part.Color = Color3.fromRGB(170, 0, 255)
+        elseif part:IsA("Script") or part:IsA("LocalScript") then
+            part:Destroy()
+        end
+    end
+
+    local circle = Instance.new("Part", clone)
+    circle.Shape = Enum.PartType.Cylinder
+    circle.Size = Vector3.new(0.15, 12, 12) 
+    circle.CFrame = cf * CFrame.Angles(0, 0, math.rad(90)) + Vector3.new(0, -2.85, 0)
+    circle.Anchored = true
+    circle.CanCollide = false
+    circle.Material = Enum.Material.Neon
+    circle.Color = Color3.fromRGB(170, 0, 255)
+    circle.Transparency = 0.5
+
+    local a0 = Instance.new("Attachment", hrp)
+    local a1 = Instance.new("Attachment", plr.Character.HumanoidRootPart)
+    local beam = Instance.new("Beam", clone)
+    beam.Attachment0 = a0
+    beam.Attachment1 = a1
+    beam.Width0 = 0.4 
+    beam.Width1 = 0.4
+    beam.Color = ColorSequence.new(Color3.fromRGB(170, 0, 255))
+    beam.FaceCamera = true
+
+    return clone
+end
+
+saveBtn.MouseButton1Click:Connect(function()
+    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+        savedLocation = plr.Character.HumanoidRootPart.CFrame
+    end
+end)
+
+local function toggleInvis()
+    invisOn = not invisOn
+    local char = plr.Character
+    
+    local targetPos = invisOn and UDim2.new(1, -28, 0.5, -13) or UDim2.new(0, 2, 0.5, -13)
+    local targetColor = invisOn and Color3.fromRGB(170, 0, 255) or Color3.fromRGB(50, 50, 50)
+    TweenService:Create(knob, TweenInfo.new(0.2), {Position = targetPos}):Play()
+    TweenService:Create(toggleBG, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+
+    if char then
+        if invisOn then
+            toggleAnimations(char, false) -- STOP ANIMATIONS
+            setTransparency(char, 0.7)
+            local targetCFrame = savedLocation or char.HumanoidRootPart.CFrame
+            visualBody = createVisuals(targetCFrame)
+            
+            task.wait()
+            char:MoveTo(Vector3.new(0, 5000, 0)) 
+            
+            local Seat = Instance.new("Seat", workspace)
+            Seat.Name = "moondy_anchor"
+            Seat.Transparency = 1
+            Seat.CFrame = targetCFrame
+            local Weld = Instance.new("Weld", Seat)
+            Weld.Part0 = Seat
+            Weld.Part1 = char:FindFirstChild("HumanoidRootPart")
+        else
+            toggleAnimations(char, true) -- RESTART ANIMATIONS
+            setTransparency(char, 0)
+            if visualBody then visualBody:Destroy() end
+            if workspace:FindFirstChild("moondy_anchor") then
+                workspace.moondy_anchor:Destroy()
+            end
+            char:MoveTo(char.HumanoidRootPart.Position)
+        end
+    end
+end
+
+toggleBG.MouseButton1Click:Connect(toggleInvis)
+UIS.InputBegan:Connect(function(i, g) if not g and i.KeyCode == Enum.KeyCode.Z then toggleInvis() end end)
