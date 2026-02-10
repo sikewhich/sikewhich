@@ -1,4 +1,4 @@
--- Moondy Hub (Updated & Fixed)
+-- Moondy Hub (Fixed ESP & Aimbot)
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -11,7 +11,7 @@ Library:Notify("Loading Moondy Hub...", 3)
 
 local Window = Library:CreateWindow({
     Title = "Moondy Hub",
-    Footer = "version: 1.1",
+    Footer = "version: 1.3",
     Icon = 1,
     NotifySide = "Right",
     ShowCustomCursor = true,
@@ -30,7 +30,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
@@ -38,7 +37,7 @@ local Camera = workspace.CurrentCamera
 
 -- Vars
 local AimbotEnabled = false
-local AimbotHold = false -- New: Hold Right Click to Lock
+local AimbotHold = false 
 local AimbotSmoothness = 1
 local AimbotFOV = 90
 local AimbotTeamCheck = false
@@ -104,12 +103,12 @@ local function isAlive()
     return char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0
 end
 
--- Hitbox Expander Logic (Fixed with pcall to prevent errors)
+-- Hitbox Expander Logic
 RunService.RenderStepped:Connect(function()
     if HitboxEnabled then
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
-                pcall(function() -- Error fix wrapper
+                pcall(function()
                     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         local hrp = player.Character.HumanoidRootPart
                         if hrp:FindFirstChild("OriginalSize") == nil then
@@ -128,7 +127,7 @@ RunService.RenderStepped:Connect(function()
         end
     else
         for _, player in pairs(Players:GetPlayers()) do
-             pcall(function() -- Error fix wrapper
+             pcall(function()
                 if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = player.Character.HumanoidRootPart
                     local orig = hrp:FindFirstChild("OriginalSize")
@@ -146,7 +145,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Rapid Fire (Click Spammer)
+-- Rapid Fire (Cleaned up)
 local mouse = LocalPlayer:GetMouse()
 mouse.Button1Down:Connect(function()
     if RapidFireEnabled then
@@ -154,7 +153,7 @@ mouse.Button1Down:Connect(function()
             while RapidFireEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                task.wait(0.01) -- Fast click speed
+                task.wait(0.01)
             end
         end)
     end
@@ -168,7 +167,6 @@ local function GetNearestTarget()
 
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
-            -- Death Check: Don't aim at dead players
             local hum = v.Character:FindFirstChild("Humanoid")
             if hum.Health <= 0 then continue end
 
@@ -227,9 +225,22 @@ local function UpdateESP()
             ESPObjects[v] = {Box = Box, Name = Name, Health = Health}
         end
     end
+    
+    -- Remove ESP for players who left
+    for player, obj in pairs(ESPObjects) do
+        if not Players:FindFirstChild(player.Name) then
+            obj.Box:Remove(); obj.Name:Remove(); obj.Health:Remove()
+            ESPObjects[player] = nil
+        end
+    end
+
     for _, v in pairs(Players:GetPlayers()) do
         local objects = ESPObjects[v]; if not objects then continue end
         local ShouldShow = false; local color = Color3.new(1, 1, 1)
+        
+        -- FIX: Check if object is valid before drawing
+        if not objects.Box or not objects.Name or not objects.Health then continue end
+
         if ESPEnabled and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
             if not (ESPTeamCheck and v.Team == LocalPlayer.Team) then
                 local pos, onScreen = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
@@ -242,7 +253,17 @@ local function UpdateESP()
                 end
             end
         end
-        objects.Box.Visible = ShouldShow and ESPBoxes; objects.Name.Visible = ShouldShow and ESPNames; objects.Health.Visible = ShouldShow and ESPHealth
+        
+        -- FIX: Force invisible if not showing
+        if not ShouldShow then
+            objects.Box.Visible = false
+            objects.Name.Visible = false
+            objects.Health.Visible = false
+        else
+            objects.Box.Visible = ESPBoxes
+            objects.Name.Visible = ESPNames
+            objects.Health.Visible = ESPHealth
+        end
     end
 end
 
@@ -300,6 +321,15 @@ local function UpdateTracers()
             TracerObjects[v] = {Line = Line}
         end
     end
+    
+    -- Remove tracers for left players
+    for player, obj in pairs(TracerObjects) do
+        if not Players:FindFirstChild(player.Name) then
+            obj.Line:Remove()
+            TracerObjects[player] = nil
+        end
+    end
+
     for _, v in pairs(Players:GetPlayers()) do
         local objects = TracerObjects[v]; if not objects then continue end
         local ShouldShow = false; local color = Color3.new(1, 1, 1)
@@ -389,15 +419,15 @@ RunService.RenderStepped:Connect(function()
     Camera.FieldOfView = PlayerFOV
 
     if AimbotEnabled then
-        -- New Logic: Check if Hold Click is enabled
         if AimbotHold and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            return -- Don't aim if not holding right click
+            return
         end
 
         local target = GetNearestTarget()
         if target then
             local partToAim = target.Character:FindFirstChild(AimbotPart) or target.Character:FindFirstChild("Head") or target.Character.HumanoidRootPart
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, partToAim.Position), (AimbotSmoothness / 100))
+            -- FIX: Direct Lock logic
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, partToAim.Position)
         end
     end
     
@@ -441,7 +471,7 @@ end)
 -- GUI SETUP
 local AimbotLeft = Tabs.Aimbot:AddLeftGroupbox("Aimbot Main", "boxes")
 AimbotLeft:AddToggle("AimbotEnabled", {Text = "Enable Aimbot (P)", Default = false, Callback = function(val) AimbotEnabled = val end})
-AimbotLeft:AddToggle("AimbotHold", {Text = "Hold Right Click to Lock", Default = false, Callback = function(val) AimbotHold = val end}) -- New Toggle
+AimbotLeft:AddToggle("AimbotHold", {Text = "Hold Right Click", Default = false, Callback = function(val) AimbotHold = val end}) 
 AimbotLeft:AddSlider("AimbotSmoothness", {Text = "Smoothness", Min = 1, Max = 100, Default = 1, Callback = function(val) AimbotSmoothness = val end})
 AimbotLeft:AddSlider("FOVSize", {Text = "FOV Size", Min = 10, Max = 500, Default = 90, Callback = function(val) FOVSize = val end})
 AimbotLeft:AddToggle("FOVCircleEnabled", {Text = "Show FOV Circle", Default = false, Callback = function(val) FOVCircleEnabled = val end})
@@ -460,9 +490,8 @@ AimbotRight:AddToggle("HitboxEnabled", {Text = "Hitbox Expander", Default = fals
 AimbotRight:AddSlider("HitboxSize", {Text = "Hitbox Size", Min = 1, Max = 50, Default = 19, Callback = function(val) HitboxSize = val end})
 AimbotRight:AddToggle("AutoShoot", {Text = "Auto Shoot", Default = false, Callback = function(val) AutoShootEnabled = val end})
 AimbotRight:AddToggle("AutoShootTeamCheck", {Text = "Team Check", Default = false, Callback = function(val) AutoShootTeamCheck = val end})
-AimbotRight:AddToggle("RapidFire", {Text = "Rapid Fire (Click Spam)", Default = false, Callback = function(val) 
+AimbotRight:AddToggle("RapidFire", {Text = "Rapid Fire", Default = false, Callback = function(val) 
     RapidFireEnabled = val
-    -- Removed module editing, now acts as click spammer
 end})
 
 local VisLeft = Tabs.Visuals:AddLeftGroupbox("ESP Settings", "boxes")
@@ -487,7 +516,7 @@ WorldLeft:AddToggle("XrayEnabled", {Text = "Xray", Default = false, Callback = f
 WorldLeft:AddToggle("NightMode", {Text = "Night Mode", Default = false, Callback = function(val) 
     if val then Lighting.TimeOfDay = 0 else Lighting.TimeOfDay = 12 end
 end})
-WorldLeft:AddButton("Anti Lag (Remove VFX/Textures)", function()
+WorldLeft:AddButton("Anti Lag", function()
     local count = 0
     for _, v in pairs(game:GetDescendants()) do 
         if v:IsA("Texture") or v:IsA("Decal") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then 
