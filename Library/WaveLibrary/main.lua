@@ -1,3 +1,5 @@
+-- 43341
+
 local WaveLibrary = {}
 WaveLibrary.__index = WaveLibrary
 
@@ -6,6 +8,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
+local ContentProvider = game:GetService("ContentProvider")
 local Player = Players.LocalPlayer
 
 -- State
@@ -42,13 +45,6 @@ function WaveLibrary.new(opts)
     ScreenGui.Name = self.Name .. "_Gui"
     ScreenGui.Parent = Player:WaitForChild("PlayerGui")
     ScreenGui.ResetOnSpawn = false
-    if (RunService:IsStudio()) then
-        -- Helper to test in studio if coregui insert fails
-        pcall(function() 
-            local starterGui = game:GetService("StarterGui") 
-            starterGui:SetCore("SendNotification", {Title="WaveLibrary", Text="Testing in Studio"}) 
-        end)
-    end
     self.Gui = ScreenGui
 
     -- Main Frame
@@ -62,14 +58,14 @@ function WaveLibrary.new(opts)
     self.MainFrame = MainFrame
     
     self.MainStroke = StyleUI(MainFrame)
-    self.Strokes = {self.MainStroke} -- Track strokes for rainbow mode
-    self.Toggles = {} -- Track active toggles for rainbow mode
+    self.Strokes = {self.MainStroke}
+    self.Toggles = {}
 
     -- Sidebar
     local Sidebar = Instance.new("Frame")
     Sidebar.Name = "Sidebar"
     Sidebar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-    Sidebar.Size = UDim2.new(0, 120, 1, 0)
+    Sidebar.Size = UDim2.new(0, 130, 1, 0) -- Slightly wider for PFP
     Sidebar.Parent = MainFrame
     
     local SidebarCorner = Instance.new("UICorner")
@@ -80,7 +76,7 @@ function WaveLibrary.new(opts)
     local Logo = Instance.new("TextLabel")
     Logo.Name = "Logo"
     Logo.Size = UDim2.new(1, 0, 0, 50)
-    Logo.Text = self.Name:sub(1,4):upper() -- Take first 4 chars like "WAVE"
+    Logo.Text = self.Name:sub(1,4):upper()
     Logo.TextColor3 = Color3.fromRGB(0, 170, 255)
     Logo.TextSize = 22
     Logo.Font = Enum.Font.GothamBlack
@@ -88,24 +84,50 @@ function WaveLibrary.new(opts)
     Logo.Parent = Sidebar
     self.Logo = Logo
 
-    -- Tab Container
+    -- TAB LAYOUT (Top)
     local TabContainer = Instance.new("Frame")
     TabContainer.Name = "TabContainer"
-    TabContainer.Size = UDim2.new(1, 0, 1, -110)
+    TabContainer.Size = UDim2.new(1, 0, 1, -130) -- Leave space for PFP at bottom (50 logo + 80 PFP)
     TabContainer.Position = UDim2.new(0, 0, 0, 50)
     TabContainer.BackgroundTransparency = 1
     TabContainer.Parent = Sidebar
     
     local TabLayout = Instance.new("UIListLayout")
     TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    TabLayout.Padding = UDim.new(0, 5)
+    TabLayout.Padding = UDim.new(0, 8) -- SPACE BETWEEN TABS
     TabLayout.Parent = TabContainer
+
+    -- PFP FRAME (Bottom)
+    local PFPHolder = Instance.new("Frame")
+    PFPHolder.Name = "PFPHolder"
+    PFPHolder.Size = UDim2.new(0, 80, 0, 80)
+    PFPHolder.Position = UDim2.new(0.5, -40, 1, -90) -- Positioned at bottom
+    PFPHolder.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    PFPHolder.Parent = Sidebar
+    
+    local PFPCorner = Instance.new("UICorner")
+    PFPCorner.CornerRadius = UDim.new(1, 0) -- Fully rounded
+    PFPCorner.Parent = PFPHolder
+    
+    local PFPImg = Instance.new("ImageLabel")
+    PFPImg.Name = "PFPImage"
+    PFPImg.Size = UDim2.new(1, 0, 1, 0)
+    PFPImg.BackgroundTransparency = 1
+    PFPImg.ScaleType = Enum.ScaleType.Crop
+    PFPImg.Parent = PFPHolder
+    
+    -- Load PFP
+    local userId = Player.UserId
+    local thumbType = Enum.ThumbnailType.HeadShot
+    local thumbSize = Enum.ThumbnailSize.Size420x420
+    local content, isReady = Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
+    PFPImg.Image = content
 
     -- Page Container
     local ContainerHolder = Instance.new("Frame")
     ContainerHolder.Name = "ContainerHolder"
-    ContainerHolder.Position = UDim2.new(0, 130, 0, 15)
-    ContainerHolder.Size = UDim2.new(1, -145, 1, -30)
+    ContainerHolder.Position = UDim2.new(0, 140, 0, 15) -- Adjusted for wider sidebar
+    ContainerHolder.Size = UDim2.new(1, -155, 1, -30)
     ContainerHolder.BackgroundTransparency = 1
     ContainerHolder.Parent = MainFrame
 
@@ -121,7 +143,7 @@ function WaveLibrary:AddTab(Name)
     -- Create Tab Button in Sidebar
     local TabBtn = Instance.new("TextButton")
     TabBtn.Name = Name
-    TabBtn.Size = UDim2.new(0, 105, 0, 32)
+    TabBtn.Size = UDim2.new(0, 110, 0, 35) -- Adjusted size for spacing
     TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     TabBtn.Text = Name
     TabBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -146,21 +168,17 @@ function WaveLibrary:AddTab(Name)
     PageLayout.Padding = UDim.new(0, 10)
     PageLayout.Parent = Page
 
-    -- Add to internal tables
     self.TabButtons[Name] = TabBtn
     self.Pages[Name] = Page
 
-    -- Click Logic
     TabBtn.MouseButton1Click:Connect(function()
         self:SelectTab(Name)
     end)
 
-    -- If it's the first tab, select it immediately
     if #self.TabButtons == 1 then
         self:SelectTab(Name)
     end
 
-    -- Return an object to add elements to
     return {
         AddToggle = function(text, callback, default)
             self:AddToggleToPage(Page, text, callback, default)
@@ -171,7 +189,6 @@ function WaveLibrary:AddTab(Name)
     }
 end
 
---- Internal: Switches active tab
 function WaveLibrary:SelectTab(Name)
     for tabName, btn in pairs(self.TabButtons) do
         btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -187,7 +204,6 @@ function WaveLibrary:SelectTab(Name)
     self.Pages[Name].Visible = true
 end
 
---- Internal: Creates a Toggle on a specific page
 function WaveLibrary:AddToggleToPage(parent, text, callback, startState)
     startState = startState or false
     
@@ -225,7 +241,6 @@ function WaveLibrary:AddToggleToPage(parent, text, callback, startState)
 
     Sw.MouseButton1Click:Connect(function()
         act = not act
-        -- Tween the circle
         local goal = {}
         goal.Position = act and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
         local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -243,7 +258,6 @@ function WaveLibrary:AddToggleToPage(parent, text, callback, startState)
     end)
 end
 
---- Internal: Creates a Slider on a specific page
 function WaveLibrary:AddSliderToPage(parent, name, min, max, startVal, callback)
     local SF = Instance.new("Frame", parent)
     SF.Size = UDim2.new(1, 0, 0, 55)
@@ -293,29 +307,18 @@ function WaveLibrary:AddSliderToPage(parent, name, min, max, startVal, callback)
     end)
 end
 
---- Toggles Rainbow Mode
 function WaveLibrary:ToggleRainbow(enabled)
     isRainbow = enabled
     if enabled then
         if not rainbowConnection then
             rainbowConnection = RunService.RenderStepped:Connect(function()
                 local c = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                
-                -- Update Logo
                 self.Logo.TextColor3 = c
-                
-                -- Update Strokes
                 for _, str in pairs(self.Strokes) do str.Color = c end
-                
-                -- Update Sliders
                 for _, sl in pairs(self.Sliders) do sl.BackgroundColor3 = c end
-                
-                -- Update Active Tab
                 for name, btn in pairs(self.TabButtons) do 
                     if self.Pages[name].Visible then btn.BackgroundColor3 = c end 
                 end
-                
-                -- Update Active Toggles
                 for toggleBtn, _ in pairs(self.Toggles) do toggleBtn.BackgroundColor3 = c end
             end)
         end
@@ -324,7 +327,6 @@ function WaveLibrary:ToggleRainbow(enabled)
             rainbowConnection:Disconnect()
             rainbowConnection = nil
         end
-        -- Revert Colors
         self.Logo.TextColor3 = Color3.fromRGB(0, 170, 255)
         for _, str in pairs(self.Strokes) do str.Color = Color3.fromRGB(0, 170, 255) end
         for _, sl in pairs(self.Sliders) do sl.BackgroundColor3 = Color3.fromRGB(0, 170, 255) end
@@ -335,7 +337,6 @@ function WaveLibrary:ToggleRainbow(enabled)
     end
 end
 
---- Toggles UI Visibility
 function WaveLibrary:ToggleUI()
     self.MainFrame.Visible = not self.MainFrame.Visible
 end
