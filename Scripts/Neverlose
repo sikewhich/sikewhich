@@ -48,9 +48,6 @@ local ChamsEnabled = false
 local ChamsTeamCheck = false
 local RainbowChams = false
 
--- World (Items)
-local ItemESPEnabled = false
-
 -- Exploits
 local SpeedEnabled = false
 local SpeedValue = 20
@@ -72,14 +69,12 @@ local PlayerFOV = 70
 -- Auto Shoot
 local AutoShootEnabled = false
 local AutoShootTeamCheck = false
-local RapidFireEnabled = false
 
 -- Caches
 local ESPObjects = {}
 local TracerObjects = {}
 local ChamsObjects = {}
 local SkeletonObjects = {}
-local ItemESPObjects = {}
 
 -- Drawing
 local FOVCircle = Drawing.new("Circle")
@@ -269,33 +264,6 @@ local function UpdateChams()
     end
 end
 
--- Rapid Fire (Module Method)
-local function SetRapidFire(enabled)
-    pcall(function()
-        if game:GetService("ReplicatedStorage"):FindFirstChild("Modules") then
-            local module = game:GetService("ReplicatedStorage").Modules:FindFirstChild("Client")
-            if module then
-                local config = module:FindFirstChild("Config")
-                if config then
-                    local items = config:FindFirstChild("Items")
-                    if items then
-                        local Items = require(items)
-                        for _, data in pairs(Items) do
-                            if typeof(data) == "table" and data.RPM then
-                                data.RPM = enabled and 9999 or data.RPM
-                                if data.ProjectileStats then
-                                    data.ProjectileStats.Count = enabled and 5 or 1
-                                    data.ProjectileStats.Velocity = enabled and 3000 or data.ProjectileStats.Velocity
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
 -- Xray
 local function SetXray(enable)
     if enable then
@@ -413,17 +381,9 @@ end)
 AimMain:AddToggle('Wall Check', false, function(val) WallCheck = val end)
 AimMain:AddToggle('Team Check', false, function(val) AimbotTeamCheck = val end)
 
-local AimRage = TabAimbot:AddSection('Rage', "right")
-AimRage:AddToggle('Enable Ragebot', false, function(val) print("Rage:", val) end)
-AimRage:AddToggle('Silent Aim', false, function(val) print("Silent:", val) end)
-
 local AimLegit = TabAimbot:AddSection('Legit', "right")
 AimLegit:AddToggle('Auto Shoot', false, function(val) AutoShootEnabled = val end)
 AimLegit:AddToggle('Team Check', false, function(val) AutoShootTeamCheck = val end)
-AimLegit:AddToggle('Rapid Fire (Module)', false, function(val) 
-    RapidFireEnabled = val
-    SetRapidFire(val)
-end)
 
 Window:AddTabLabel('Visual')
 local TabVisual = Window:AddTab('Visual', 'user')
@@ -454,9 +414,6 @@ end)
 WorldVisuals:AddToggle('Anti Lag', false, function(val)
     if val then for _, v in pairs(game:GetDescendants()) do if v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") then v:Destroy() end end end
 end)
-
-local WorldItems = TabWorld:AddSection('Items', "left")
-WorldItems:AddToggle('Item ESP', false, function(val) ItemESPEnabled = val end)
 
 Window:AddTabLabel('Player')
 local TabPlayer = Window:AddTab('Player', 'user')
